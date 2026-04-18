@@ -48,22 +48,24 @@ object ModelSerializers:
    * @param featureSer The implicit [[Serializer]] for the list of [[Feature]].
    */
   given modelSerializer(
-                         using
-                         netSer: Serializer[Network],
-                         featureSer: Serializer[List[Feature]]
-                       ): Serializer[Model] with
+    using
+      netSer: Serializer[Network],
+      featureSer: Serializer[List[Feature]]
+  ): Serializer[Model] with
 
     def serialize(model: Model): Array[Byte] =
       val netBytes = netSer.serialize(model.network)
       val featBytes = featureSer.serialize(model.features)
 
-      val buffer = ByteBuffer.allocate(4 + netBytes.length + 4 + featBytes.length)
+      val buffer = ByteBuffer.allocate(4 + netBytes.length + 4 + featBytes.length + 4)
 
       buffer.putInt(netBytes.length)
       buffer.put(netBytes)
 
       buffer.putInt(featBytes.length)
       buffer.put(featBytes)
+
+      buffer.putInt(model.maturity)
 
       buffer.array()
 
@@ -80,5 +82,7 @@ object ModelSerializers:
       buffer.get(featBytes)
       val features = featureSer.deserialize(featBytes).get
 
-      Model(network, features)
+      val maturity = if buffer.hasRemaining then buffer.getInt else 0
+
+      Model(network, features, maturity)
     }
