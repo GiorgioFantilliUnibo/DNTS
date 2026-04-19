@@ -28,32 +28,32 @@ object ModelProtocol:
      * @param optimizer    The optimization strategy to be used for updates.
      * @param trainerActor The reference to the associated TrainerActor.
      */
-    final case class  Initialize(
-                                  model: Model,
-                                  optimizer: Optimizer,
-                                  trainerActor: ActorRef[TrainerCommand]
-                                ) extends ModelCommand
+    final case class Initialize(
+      model: Model,
+      optimizer: Optimizer,
+      trainerActor: ActorRef[TrainerCommand]
+    ) extends ModelCommand
 
     /**
      * Updates the local model parameters using the provided gradients.
      *
      * @param grads The gradients calculated during the training step.
      */
-    final case class  ApplyGradients(grads: NetworkGradient) extends ModelCommand
+    final case class ApplyGradients(grads: NetworkGradient) extends ModelCommand
 
     /**
      * Requests the current Model.
      *
      * @param replyTo The actor reference that will receive the current Model.
      */
-    final case class  GetModel(replyTo: ActorRef[Model])  extends ModelCommand
+    final case class GetModel(replyTo: ActorRef[Model])  extends ModelCommand
 
     /**
      * Synchronizes the local model with a model received from a remote peer.
      *
      * @param remoteModel The model received via gossip from another node.
      */
-    final case class  SyncModel(remoteModel: Model)  extends ModelCommand
+    final case class SyncModel(remoteModel: Model)  extends ModelCommand
 
     /**
      * Updates the stored consensus metric.
@@ -70,7 +70,7 @@ object ModelProtocol:
      *
      * @param replyTo The monitor reference that will receive the formatted ViewUpdateResponse.
      */
-    final case class  GetMetrics(replyTo: ActorRef[MonitorCommand.ViewUpdateResponse])  extends ModelCommand
+    final case class GetMetrics(replyTo: ActorRef[MonitorCommand.ViewUpdateResponse])  extends ModelCommand
 
     /**
      * Internal message used to wrap the results of metric calculations.
@@ -78,10 +78,10 @@ object ModelProtocol:
      * @param metrics The raw metrics calculated by the Trainer.
      * @param replyTo The original monitor reference to respond to.
      */
-    final case class  InternalMetricsResult(
-                                             metrics: MetricsCalculated,
-                                             replyTo: ActorRef[MonitorCommand.ViewUpdateResponse]
-                                           ) extends ModelCommand
+    final case class InternalMetricsResult(
+      metrics: MetricsCalculated,
+      replyTo: ActorRef[MonitorCommand.ViewUpdateResponse]
+    ) extends ModelCommand
 
     /**
      * Request to write the current model to the file
@@ -94,12 +94,18 @@ object ModelProtocol:
      * @param point   The input features (Point2D).
      * @param replyTo The actor reference that will receive the predicted Double value.
      */
-    final case class  GetPrediction(
-                                     point: Point2D,
-                                     replyTo: ActorRef[Double]
-                                   ) extends ModelCommand
+    final case class GetPrediction(
+      point: Point2D,
+      replyTo: ActorRef[Double]
+    ) extends ModelCommand
 
     /**
      * Stop [[ModelActor]] execution
      */
     case object StopSimulation extends ModelCommand
+
+    /**
+    * Private command triggered periodically by the internal timer to persist
+    * the current model state to disk as a crash-recovery snapshot.
+    */
+    private[model] case object TakeSnapshot extends ModelCommand

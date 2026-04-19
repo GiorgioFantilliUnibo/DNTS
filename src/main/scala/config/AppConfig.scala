@@ -34,7 +34,17 @@ trait AppConfig:
    */
   def consensusInterval: FiniteDuration
   
+  /**
+   * The time interval at which the GossipActor sends a synchronization request to a random peer.
+   */
   def gossipRequestConfig: FiniteDuration
+
+  /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
+  def snapshotInterval: FiniteDuration
+
+  /** The file path used to persist the local model snapshot for crash recovery. */
+  def modelSnapshotPath: String
+
 
 /**
  * Default Production Configuration.
@@ -62,10 +72,18 @@ object ProductionConfig extends AppConfig:
   /** Define Mean Squared Error (MSE) as the standard loss metric. */
   override final val lossFunction: LossFunction = Losses.mse
 
-
   /**
    * Global consensus round frequency.
    */
   override final val consensusInterval: FiniteDuration = 400.millis
 
+  /**
+   * The time interval at which the GossipActor sends a synchronization request to a random peer.
+   */
   override final val gossipRequestConfig: FiniteDuration = 3.seconds
+
+  /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
+  override final val snapshotInterval: FiniteDuration = 10.seconds
+
+  /** Default path for the local model snapshot used in crash recovery. */
+  override final val modelSnapshotPath: String = "local_model_snapshot.bin"

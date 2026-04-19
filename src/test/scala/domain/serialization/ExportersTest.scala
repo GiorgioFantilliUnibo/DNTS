@@ -4,7 +4,6 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import domain.network.{Activations, Feature, ModelBuilder, Model}
 import domain.serialization.Exporters.given
-import domain.serialization.Exporters.Exporter
 
 class ExportersTest extends AnyFunSuite with Matchers {
 
