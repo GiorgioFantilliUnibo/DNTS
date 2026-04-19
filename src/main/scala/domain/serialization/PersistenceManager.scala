@@ -3,6 +3,8 @@ package domain.serialization
 import java.nio.file.{Files, Paths}
 import scala.util.Try
 
+import domain.serialization.Serializer.*
+
 
 /**
  * Utility for saving and retrieving state from the local file system.
@@ -15,7 +17,7 @@ object PersistenceManager:
    */
   extension [T: Serializer](data: T)
     def saveToFile(filePath: String): Try[Unit] = Try {
-      val bytes = summon[Serializer[T]].serialize(data)
+      val bytes = data.serialize
       Files.write(Paths.get(filePath), bytes)
       ()
     }
@@ -29,7 +31,5 @@ object PersistenceManager:
    */
   def loadFromFile[T: Serializer](filePath: String): Try[T] = Try {
     val bytes = Files.readAllBytes(Paths.get(filePath))
-    summon[Serializer[T]].deserialize(bytes).get
+    bytes.deserialize[T].get
   }
-
-

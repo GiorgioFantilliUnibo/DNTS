@@ -112,7 +112,7 @@ private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: 
           Behaviors.same
 
         case ModelCommand.ExportToFile =>
-          val jsonModel = summon[Exporter[Model]].jsonExport(currentModel)
+          val jsonModel = currentModel.jsonExport
           val fileName = config.netLogFileName
           val path = Paths.get(fileName)
           try {

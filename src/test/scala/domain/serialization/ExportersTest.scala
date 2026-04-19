@@ -17,18 +17,18 @@ class ExportersTest extends AnyFunSuite with Matchers {
   final val dummyModel = createModel(1)
 
   test("Model export should start with 'model' block and contain features") {
-    val json = summon[Exporter[Model]].jsonExport(dummyModel)
+    val json = dummyModel.jsonExport
     json should startWith ("model {")
     json should include ("features = [\"X\", \"Y\"]")
   }
 
   test("Model export should contain 'hidden-layers' section") {
-    val json = summon[Exporter[Model]].jsonExport(dummyModel)
+    val json = dummyModel.jsonExport
     json should include ("hidden-layers =")
   }
 
   test("Model export contains technical network fields") {
-    val json = summon[Exporter[Model]].jsonExport(dummyModel)
+    val json = dummyModel.jsonExport
 
     json should include ("\"layer_index\":")
     json should include ("\"activation\":")
@@ -36,7 +36,7 @@ class ExportersTest extends AnyFunSuite with Matchers {
   }
 
   test("Model export contains weight and bias parameters") {
-    val json = summon[Exporter[Model]].jsonExport(dummyModel)
+    val json = dummyModel.jsonExport
 
     json should include ("\"parameters\":")
     json should include ("\"biases\":")

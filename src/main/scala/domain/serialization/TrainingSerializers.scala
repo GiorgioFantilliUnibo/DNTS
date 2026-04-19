@@ -10,19 +10,20 @@ import scala.util.Try
 object TrainingSerializers:
 
   given regularizationSerializer: Serializer[Regularization] with
-    def serialize(reg: Regularization): Array[Byte] =
-      val buffer = ByteBuffer.allocate(24)
-      reg match
-        case RegNone =>
-          buffer.putInt(0)
-        case L2(l) =>
-          buffer.putInt(1); buffer.putDouble(l)
-        case L1(l) =>
-          buffer.putInt(2); buffer.putDouble(l)
-        case ElasticNet(l1, l2) =>
-          buffer.putInt(3); buffer.putDouble(l1); buffer.putDouble(l2)
+    extension (reg: Regularization) 
+      def serialize: Array[Byte] =
+        val buffer = ByteBuffer.allocate(24)
+        reg match
+          case RegNone =>
+            buffer.putInt(0)
+          case L2(l) =>
+            buffer.putInt(1); buffer.putDouble(l)
+          case L1(l) =>
+            buffer.putInt(2); buffer.putDouble(l)
+          case ElasticNet(l1, l2) =>
+            buffer.putInt(3); buffer.putDouble(l1); buffer.putDouble(l2)
 
-      buffer.array().take(buffer.position())
+        buffer.array().take(buffer.position())
 
     def deserialize(bytes: Array[Byte]): Try[Regularization] = Try {
       val buffer = ByteBuffer.wrap(bytes)
@@ -34,40 +35,43 @@ object TrainingSerializers:
         case _ => throw new IllegalArgumentException("Unknown Regularization type")
     }
 
-  given trainingConfigSerializer(using
-                                 featSer: Serializer[List[Feature]],
-                                 regSer: Serializer[Regularization]
-                                ): Serializer[TrainingConfig] with
 
-    def serialize(conf: TrainingConfig): Array[Byte] =
-      val featBytes = featSer.serialize(conf.features)
-      val regBytes = regSer.serialize(conf.hp.regularization)
+  given trainingConfigSerializer(
+    using
+      featSer: Serializer[List[Feature]],
+      regSer: Serializer[Regularization]
+  ): Serializer[TrainingConfig] with
 
-      val totalSize =
-        4 + featBytes.length +
-          8 +
-          4 + regBytes.length +
-          4 +
-          4 +
-          8 + 1
+    extension (conf: TrainingConfig) 
+      def serialize: Array[Byte] =
+        val featBytes = conf.features.serialize
+        val regBytes = conf.hp.regularization.serialize
 
-      val buffer = ByteBuffer.allocate(totalSize)
+        val totalSize =
+          4 + featBytes.length +
+            8 +
+            4 + regBytes.length +
+            4 +
+            4 +
+            8 + 1
 
-      buffer.putInt(featBytes.length)
-      buffer.put(featBytes)
+        val buffer = ByteBuffer.allocate(totalSize)
 
-      buffer.putDouble(conf.hp.learningRate)
-      buffer.putInt(regBytes.length)
-      buffer.put(regBytes)
+        buffer.putInt(featBytes.length)
+        buffer.put(featBytes)
 
-      buffer.putInt(conf.epochs)
-      buffer.putInt(conf.batchSize)
+        buffer.putDouble(conf.hp.learningRate)
+        buffer.putInt(regBytes.length)
+        buffer.put(regBytes)
 
-      conf.seed match
-        case Some(s) => buffer.put(1.toByte); buffer.putLong(s)
-        case None    => buffer.put(0.toByte); buffer.putLong(0L) // Padding
+        buffer.putInt(conf.epochs)
+        buffer.putInt(conf.batchSize)
 
-      buffer.array()
+        conf.seed match
+          case Some(s) => buffer.put(1.toByte); buffer.putLong(s)
+          case None    => buffer.put(0.toByte); buffer.putLong(0L)
+
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): Try[TrainingConfig] = Try {
       val buffer = ByteBuffer.wrap(bytes)

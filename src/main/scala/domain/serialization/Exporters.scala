@@ -5,49 +5,53 @@ import domain.network.Model
 object Exporters:
 
   trait Exporter[T]:
-    def jsonExport(obj: T): String
+    extension (obj: T) 
+      def jsonExport: String
+
 
   /**
    * Exporter for generating detailed JSON representations of a [[Model]].
    */
   given modelExporter: Exporter[Model] with
-    def jsonExport(model: Model): String =
-      val net = model.network
-      val allLayers = net.layers
 
-      def exportLayer(layer: domain.network.Layer, idx: Int): String =
-        val neurons = layer.weights.rows
-        val inputSize = layer.weights.cols
-        val biasString = layer.biases.toList.mkString("[", ", ", "]")
-        val weightsString = layer.weights.toFlatList
-          .grouped(inputSize)
-          .map(_.mkString("        [", ", ", "]"))
-          .mkString("[\n", ",\n", "\n      ]")
+    extension (model: Model) 
+      def jsonExport: String =
+        val net = model.network
+        val allLayers = net.layers
 
-        s"""{
-           |      "layer_index": $idx,
-           |      "activation": "${layer.activation.name}",
-           |      "input_size": $inputSize,
-           |      "neurons_count": $neurons,
-           |      "parameters": {
-           |        "biases": $biasString,
-           |        "weights": $weightsString
-           |      }
-           |    }""".stripMargin
+        def exportLayer(layer: domain.network.Layer, idx: Int): String =
+          val neurons = layer.weights.rows
+          val inputSize = layer.weights.cols
+          val biasString = layer.biases.toList.mkString("[", ", ", "]")
+          val weightsString = layer.weights.toFlatList
+            .grouped(inputSize)
+            .map(_.mkString("        [", ", ", "]"))
+            .mkString("[\n", ",\n", "\n      ]")
 
-      val featuresJson = model.features.map(f => s"\"$f\"").mkString("[", ", ", "]")
+          s"""{
+            |      "layer_index": $idx,
+            |      "activation": "${layer.activation.name}",
+            |      "input_size": $inputSize,
+            |      "neurons_count": $neurons,
+            |      "parameters": {
+            |        "biases": $biasString,
+            |        "weights": $weightsString
+            |      }
+            |    }""".stripMargin
 
-      val hiddenLayersJson = allLayers.dropRight(1).zipWithIndex.map {
-        case (layer, idx) => exportLayer(layer, idx)
-      }.mkString(",\n")
+        val featuresJson = model.features.map(f => s"\"$f\"").mkString("[", ", ", "]")
 
-      val outputLayerJson = allLayers.lastOption match {
-        case Some(layer) => exportLayer(layer, allLayers.size - 1)
-        case None => "{}"
-      }
+        val hiddenLayersJson = allLayers.dropRight(1).zipWithIndex.map {
+          case (layer, idx) => exportLayer(layer, idx)
+        }.mkString(",\n")
 
-      s"""model {
-         | features = $featuresJson
-         | hidden-layers = $hiddenLayersJson
-         | output-layer = $outputLayerJson
-         |}""".stripMargin
+        val outputLayerJson = allLayers.lastOption match {
+          case Some(layer) => exportLayer(layer, allLayers.size - 1)
+          case None => "{}"
+        }
+
+        s"""model {
+          | features = $featuresJson
+          | hidden-layers = $hiddenLayersJson
+          | output-layer = $outputLayerJson
+          |}""".stripMargin

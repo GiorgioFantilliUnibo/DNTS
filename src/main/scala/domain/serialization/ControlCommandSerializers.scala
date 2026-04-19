@@ -10,38 +10,40 @@ import scala.util.Try
 
 object ControlCommandSerializers:
 
-  given controlCommandSerializer(using
-                                 modelSer: Serializer[Model],
-                                 configSer: Serializer[TrainingConfig]
-                                ): Serializer[ControlCommand] with
+  given controlCommandSerializer(
+    using
+      modelSer: Serializer[Model],
+      configSer: Serializer[TrainingConfig]
+  ): Serializer[ControlCommand] with
 
-    def serialize(cmd: ControlCommand): Array[Byte] =
-      cmd match
-        case ControlCommand.GlobalPause  => "GlobalPause".getBytes(StandardCharsets.UTF_8)
-        case ControlCommand.GlobalResume => "GlobalResume".getBytes(StandardCharsets.UTF_8)
-        case ControlCommand.GlobalStop   => "GlobalStop".getBytes(StandardCharsets.UTF_8)
+    extension (cmd: ControlCommand) 
+      def serialize: Array[Byte] =
+        cmd match
+          case ControlCommand.GlobalPause  => "GlobalPause".getBytes(StandardCharsets.UTF_8)
+          case ControlCommand.GlobalResume => "GlobalResume".getBytes(StandardCharsets.UTF_8)
+          case ControlCommand.GlobalStop   => "GlobalStop".getBytes(StandardCharsets.UTF_8)
 
-        case ControlCommand.PrepareClient(seedID, model, tConfig) =>
-          val idBytes = seedID.getBytes(StandardCharsets.UTF_8)
-          val modelBytes = modelSer.serialize(model)
-          val configBytes = configSer.serialize(tConfig)
+          case ControlCommand.PrepareClient(seedID, model, tConfig) =>
+            val idBytes = seedID.getBytes(StandardCharsets.UTF_8)
+            val modelBytes = model.serialize
+            val configBytes = tConfig.serialize
 
-          val capacity = 1 +
-            4 + idBytes.length +
-            4 + modelBytes.length +
-            4 + configBytes.length
+            val capacity = 1 +
+              4 + idBytes.length +
+              4 + modelBytes.length +
+              4 + configBytes.length
 
-          val buffer = ByteBuffer.allocate(capacity)
-          buffer.put(1.toByte)
+            val buffer = ByteBuffer.allocate(capacity)
+            buffer.put(1.toByte)
 
-          buffer.putInt(idBytes.length); buffer.put(idBytes)
-          buffer.putInt(modelBytes.length); buffer.put(modelBytes)
-          buffer.putInt(configBytes.length); buffer.put(configBytes)
+            buffer.putInt(idBytes.length); buffer.put(idBytes)
+            buffer.putInt(modelBytes.length); buffer.put(modelBytes)
+            buffer.putInt(configBytes.length); buffer.put(configBytes)
 
-          buffer.array()
+            buffer.array()
 
-        case other =>
-          throw new IllegalArgumentException(s"Serialization not supported for ControlCommand: $other")
+          case other =>
+            throw new IllegalArgumentException(s"Serialization not supported for ControlCommand: $other")
 
     def deserialize(bytes: Array[Byte]): Try[ControlCommand] = Try {
       
