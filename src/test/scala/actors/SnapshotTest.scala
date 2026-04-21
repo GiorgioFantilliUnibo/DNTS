@@ -41,8 +41,8 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
     override val consensusInterval: FiniteDuration            = ProductionConfig.consensusInterval
     override val gossipRequestConfig: FiniteDuration          = ProductionConfig.gossipRequestConfig
     override val snapshotInterval: FiniteDuration             = 500.millis
-    override def modelSnapshotPath: String                    = "test_model_snapshot.bin"
-    override def trainingSnapshotPath: String                 = "test_training_snapshot.bin"
+    override def modelSnapshotPath(port: Int): String         = s"test_model_snapshot_$port.bin"
+    override def trainingSnapshotPath(port: Int): String      = s"test_training_snapshot_$port.bin"
 
   given AppConfig = TestConfig
 
@@ -72,12 +72,10 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
   )
 
   override def afterEach(): Unit =
-    val mPath = Paths.get(TestConfig.modelSnapshotPath)
-    val tPath = Paths.get(TestConfig.trainingSnapshotPath)
-    val cPath = Paths.get("cluster_members_0.txt")
+    val mPath = Paths.get(TestConfig.modelSnapshotPath(0))
+    val tPath = Paths.get(TestConfig.trainingSnapshotPath(0))
     if Files.exists(mPath) then Files.delete(mPath)
     if Files.exists(tPath) then Files.delete(tPath)
-    if Files.exists(cPath) then Files.delete(cPath)
 
   private def setup(): (ActorRef[ModelCommand], akka.actor.testkit.typed.scaladsl.TestProbe[TrainerCommand]) =
     val trainerProbe = createTestProbe[TrainerCommand]()
@@ -92,7 +90,7 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
 
     Thread.sleep(TestConfig.snapshotInterval.toMillis + 500)
 
-    val snapshotFile = Paths.get(TestConfig.modelSnapshotPath)
+    val snapshotFile = Paths.get(TestConfig.modelSnapshotPath(0))
     Files.exists(snapshotFile) shouldBe true
     Files.size(snapshotFile)   should be > 0L
     
@@ -116,7 +114,7 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
     
     Thread.sleep(500)
     
-    val snapshotFile = Paths.get(TestConfig.trainingSnapshotPath)
+    val snapshotFile = Paths.get(TestConfig.trainingSnapshotPath(0))
     Files.exists(snapshotFile) shouldBe true
     Files.size(snapshotFile) should be > 0L
     
@@ -124,11 +122,13 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
   }
 
   test("System should successfully recover complete state from disk") {
-    dummyModel.saveToFile(TestConfig.modelSnapshotPath)
-    dummyConfig.saveToFile(TestConfig.trainingSnapshotPath)
+    val mPath = TestConfig.modelSnapshotPath(0)
+    val tPath = TestConfig.trainingSnapshotPath(0)
+    dummyModel.saveToFile(mPath)
+    dummyConfig.saveToFile(tPath)
     
-    val recoveredModel = loadFromFile[Model](TestConfig.modelSnapshotPath).get
-    val recoveredConfig = loadFromFile[TrainingConfig](TestConfig.trainingSnapshotPath).get
+    val recoveredModel = loadFromFile[Model](mPath).get
+    val recoveredConfig = loadFromFile[TrainingConfig](tPath).get
     
     recoveredModel.network shouldBe dummyModel.network
     recoveredModel.maturity shouldBe dummyModel.maturity
@@ -140,8 +140,10 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
   }
 
   test("ModelActor should clear both snapshots on ClearSnapshots command") {
-    dummyModel.saveToFile(TestConfig.modelSnapshotPath)
-    dummyConfig.saveToFile(TestConfig.trainingSnapshotPath)
+    val mPath = TestConfig.modelSnapshotPath(0)
+    val tPath = TestConfig.trainingSnapshotPath(0)
+    dummyModel.saveToFile(mPath)
+    dummyConfig.saveToFile(tPath)
     
     val (modelActor, trainerProbe) = setup()
     modelActor ! ModelCommand.Initialize(dummyModel, testOptimizer, trainerProbe.ref)
@@ -149,8 +151,8 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
     
     Thread.sleep(500)
     
-    Files.exists(Paths.get(TestConfig.modelSnapshotPath)) shouldBe false
-    Files.exists(Paths.get(TestConfig.trainingSnapshotPath)) shouldBe false
+    Files.exists(Paths.get(mPath)) shouldBe false
+    Files.exists(Paths.get(tPath)) shouldBe false
     
     modelActor ! ModelCommand.StopSimulation
   }

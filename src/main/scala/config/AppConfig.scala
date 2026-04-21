@@ -43,10 +43,10 @@ trait AppConfig:
   def snapshotInterval: FiniteDuration
 
   /** The file path used to persist the local model snapshot for crash recovery. */
-  def modelSnapshotPath: String
+  def modelSnapshotPath(port: Int): String
 
   /** The file path used to persist the local training snapshot for crash recovery. */
-  def trainingSnapshotPath: String
+  def trainingSnapshotPath(port: Int): String
 
 
 /**
@@ -88,8 +88,11 @@ object ProductionConfig extends AppConfig:
   /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
   override final val snapshotInterval: FiniteDuration = 10.seconds
 
+
+  private final val snapshotsDir: String = "./data/"
+
   /** Default path for the local model snapshot used in crash recovery. */
-  override final val modelSnapshotPath: String = "local_model_snapshot.bin"
+  override def modelSnapshotPath(port: Int): String = s"${snapshotsDir}local_model_snapshot_$port.bin"
 
   /** Default path for the local training snapshot used in crash recovery. */
-  override final val trainingSnapshotPath: String = "local_training_snapshot.bin"
+  override def trainingSnapshotPath(port: Int): String = s"${snapshotsDir}local_training_snapshot_$port.bin"

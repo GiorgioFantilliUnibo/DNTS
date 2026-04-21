@@ -38,6 +38,8 @@ private[model] class ModelBehavior(
   config: AppConfig
 ):
 
+  private def getPort: Int = context.system.address.port.getOrElse(0)
+
   /**
    * Initial state: Waiting for the model and optimizer initialization.
    */
@@ -145,8 +147,8 @@ private[model] class ModelBehavior(
 
         case ModelCommand.ClearSnapshots =>
           try {
-            Files.deleteIfExists(Paths.get(config.modelSnapshotPath))
-            Files.deleteIfExists(Paths.get(config.trainingSnapshotPath))
+            Files.deleteIfExists(Paths.get(config.modelSnapshotPath(getPort)))
+            Files.deleteIfExists(Paths.get(config.trainingSnapshotPath(getPort)))
             context.log.info("Model: Snapshots cleared from disk.")
           } catch {
             case e: Exception =>
@@ -155,11 +157,12 @@ private[model] class ModelBehavior(
           Behaviors.same
 
         case ModelCommand.TakeSnapshot =>
-          currentModel.saveToFile(config.modelSnapshotPath) match
+          val path = config.modelSnapshotPath(getPort)
+          currentModel.saveToFile(path) match
             case scala.util.Success(_) =>
-              context.log.debug(s"Model: Snapshot saved to '${config.modelSnapshotPath}' (maturity=${currentModel.maturity}).")
+              context.log.debug(s"Model: Snapshot saved to '$path' (maturity=${currentModel.maturity}).")
             case scala.util.Failure(ex) =>
-              context.log.warn(s"Model: Failed to save snapshot to '${config.modelSnapshotPath}': ${ex.getMessage}")
+              context.log.warn(s"Model: Failed to save snapshot to '$path': ${ex.getMessage}")
           Behaviors.same
 
         case _ => Behaviors.unhandled

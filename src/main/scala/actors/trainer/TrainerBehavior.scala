@@ -93,7 +93,8 @@ private[trainer] class TrainerBehavior(
             testSet = testSet,
           )
 
-          newTrainConfig.saveToFile(config.trainingSnapshotPath) match
+          val path = config.trainingSnapshotPath(ctx.system.address.port.getOrElse(0))
+          newTrainConfig.saveToFile(path) match
             case scala.util.Success(_) => ctx.log.debug("Trainer: TrainingConfig snapshot saved.")
             case scala.util.Failure(ex) => ctx.log.warn(s"Trainer: Failed to save TrainingConfig snapshot: ${ex.getMessage}")
 
