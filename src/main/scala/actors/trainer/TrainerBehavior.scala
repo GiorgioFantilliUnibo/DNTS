@@ -18,6 +18,11 @@ import actors.gossip.configuration.ConfigurationProtocol.ConfigurationCommand
 import actors.gossip.consensus.ConsensusProtocol.{ConsensusCommand, StartTickConsensus, StopTickConsensus}
 import actors.monitor.MonitorActor.MonitorCommand
 import domain.data.util.Space
+import domain.serialization.ModelSerializers.given
+import domain.serialization.TrainingSerializers.given
+import domain.serialization.DatasetSerializers.given
+import domain.serialization.PersistenceManager.*
+
 
 /**
  * Encapsulates the behavior logic for the TrainerActor.
@@ -87,16 +92,37 @@ private[trainer] class TrainerBehavior(
             trainSet = trainSet,
             testSet = testSet,
           )
-          val rand = newTrainConfig.seed.map(s => new Random(s)).getOrElse(new Random())
-          val shuffledDataset = rand.shuffle(newTrainConfig.trainSet)
+
+          newTrainConfig.saveToFile(config.trainingSnapshotPath) match
+            case scala.util.Success(_) => ctx.log.debug("Trainer: TrainingConfig snapshot saved.")
+            case scala.util.Failure(ex) => ctx.log.warn(s"Trainer: Failed to save TrainingConfig snapshot: ${ex.getMessage}")
 
           monitor.foreach(_ ! MonitorCommand.StartWithData(trainSet, testSet))
           gossip.foreach(_ ! GossipCommand.StartGossipTick)
           consensus.foreach(_ ! StartTickConsensus)
           configuration.foreach(_ ! ConfigurationProtocol.StopTickRequest)
 
-          ctx.self ! PrivateTrainerCommand.NextBatch(1, 0)
-          training(newTrainConfig, shuffledDataset, rand, 1, 0, monitor, gossip, consensus)
+          ctx.ask[ModelCommand, Model](modelActor, ref => ModelCommand.GetModel(ref)) {
+            case Success(model) =>
+              val datasetSize = newTrainConfig.trainSet.size
+              val batchSize = newTrainConfig.batchSize
+              val batchesPerEpoch = if batchSize > 0 then math.ceil(datasetSize.toDouble / batchSize.toDouble).toInt else 1
+              val currentEpoch = if batchesPerEpoch == 0 then 1 else (model.maturity / batchesPerEpoch) + 1
+              val currentIdx = if batchesPerEpoch == 0 then 0 else (model.maturity % batchesPerEpoch) * batchSize
+              PrivateTrainerCommand.StartWithMaturity(currentEpoch, currentIdx)
+            case Failure(_) => TrainerCommand.Stop
+          }
+
+          ready(newTrainConfig, monitor, gossip, configuration, consensus)
+
+        case PrivateTrainerCommand.StartWithMaturity(epoch, idx) =>
+          val rand = trainConfig.seed.map(s => new Random(s)).getOrElse(new Random())
+          var shuffledDataset = trainConfig.trainSet
+          for _ <- 1 to epoch do
+            shuffledDataset = rand.shuffle(trainConfig.trainSet)
+
+          ctx.self ! PrivateTrainerCommand.NextBatch(epoch, idx)
+          training(trainConfig, shuffledDataset, rand, epoch, idx, monitor, gossip, consensus)
 
         case TrainerCommand.RegisterServices(monRef, gosRef, confRef, consRef) =>
           ctx.log.info("Trainer: Services registered (Monitor & Gossip).")
@@ -133,6 +159,8 @@ private[trainer] class TrainerBehavior(
         case PrivateTrainerCommand.NextBatch(epoch, idx) =>
           if epoch > trainConfig.epochs then
             ctx.log.info("Trainer: All epochs completed.")
+
+            modelActor ! ModelCommand.ClearSnapshots
 
             monitor.foreach(_ ! MonitorCommand.SimulationFinished)
             gossip.foreach(_ ! GossipCommand.StopGossipTick)

@@ -105,6 +105,11 @@ object ModelProtocol:
     case object StopSimulation extends ModelCommand
 
     /**
+     * Clears all snapshot files from disk
+     */
+    case object ClearSnapshots extends ModelCommand
+
+    /**
     * Private command triggered periodically by the internal timer to persist
     * the current model state to disk as a crash-recovery snapshot.
     */

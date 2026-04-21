@@ -57,8 +57,11 @@ class TrainerActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     trainer ! TrainerCommand.SetTrainConfig(dummyConfig)
     trainer ! TrainerCommand.Start(dummyData, Nil)
 
-    val askMsg = modelProbe.expectMessageType[ModelCommand.GetModel]
-    askMsg.replyTo ! dummyModel
+    val askMsg1 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg1.replyTo ! dummyModel
+
+    val askMsg2 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg2.replyTo ! dummyModel
 
     val msg = modelProbe.expectMessageType[ModelCommand.ApplyGradients]
 
@@ -86,8 +89,12 @@ class TrainerActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     trainer ! TrainerCommand.SetTrainConfig(dummyConfig)
     trainer ! TrainerCommand.Start(dummyData, Nil)
 
-    val askMsg = modelProbe.expectMessageType[ModelCommand.GetModel]
-    askMsg.replyTo ! dummyModel
+    val askMsg1 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg1.replyTo ! dummyModel
+
+    val askMsg2 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg2.replyTo ! dummyModel
+
     modelProbe.expectMessageType[ModelCommand.ApplyGradients]
 
     trainer ! TrainerCommand.Pause

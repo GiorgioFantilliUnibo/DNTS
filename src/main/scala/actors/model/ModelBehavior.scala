@@ -143,6 +143,17 @@ private[model] class ModelBehavior(
           timers.cancelAll()
           Behaviors.stopped
 
+        case ModelCommand.ClearSnapshots =>
+          try {
+            Files.deleteIfExists(Paths.get(config.modelSnapshotPath))
+            Files.deleteIfExists(Paths.get(config.trainingSnapshotPath))
+            context.log.info("Model: Snapshots cleared from disk.")
+          } catch {
+            case e: Exception =>
+              context.log.error(s"Model: Error clearing snapshots: ${e.getMessage}")
+          }
+          Behaviors.same
+
         case ModelCommand.TakeSnapshot =>
           currentModel.saveToFile(config.modelSnapshotPath) match
             case scala.util.Success(_) =>

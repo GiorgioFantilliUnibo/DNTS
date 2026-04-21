@@ -45,6 +45,9 @@ trait AppConfig:
   /** The file path used to persist the local model snapshot for crash recovery. */
   def modelSnapshotPath: String
 
+  /** The file path used to persist the local training snapshot for crash recovery. */
+  def trainingSnapshotPath: String
+
 
 /**
  * Default Production Configuration.
@@ -87,3 +90,6 @@ object ProductionConfig extends AppConfig:
 
   /** Default path for the local model snapshot used in crash recovery. */
   override final val modelSnapshotPath: String = "local_model_snapshot.bin"
+
+  /** Default path for the local training snapshot used in crash recovery. */
+  override final val trainingSnapshotPath: String = "local_training_snapshot.bin"

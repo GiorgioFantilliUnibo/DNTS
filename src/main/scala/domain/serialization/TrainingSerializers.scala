@@ -1,6 +1,7 @@
 package domain.serialization
 
 import actors.trainer.TrainerActor.TrainingConfig
+import domain.data.LabeledPoint2D
 import domain.network.{Feature, HyperParams, Regularization}
 import domain.network.Regularization.{ElasticNet, L1, L2, None as RegNone}
 
@@ -39,23 +40,33 @@ object TrainingSerializers:
   given trainingConfigSerializer(
     using
       featSer: Serializer[List[Feature]],
-      regSer: Serializer[Regularization]
+      regSer: Serializer[Regularization],
+      dataSer: Serializer[List[LabeledPoint2D]]
   ): Serializer[TrainingConfig] with
 
     extension (conf: TrainingConfig) 
       def serialize: Array[Byte] =
         val featBytes = conf.features.serialize
         val regBytes = conf.hp.regularization.serialize
+        val trainBytes = conf.trainSet.serialize
+        val testBytes = conf.testSet.serialize
 
         val totalSize =
+          4 + trainBytes.length +
+          4 + testBytes.length +
           4 + featBytes.length +
-            8 +
-            4 + regBytes.length +
-            4 +
-            4 +
-            8 + 1
+          8 +
+          4 + regBytes.length +
+          4 +
+          4 +
+          9
 
         val buffer = ByteBuffer.allocate(totalSize)
+
+        buffer.putInt(trainBytes.length)
+        buffer.put(trainBytes)
+        buffer.putInt(testBytes.length)
+        buffer.put(testBytes)
 
         buffer.putInt(featBytes.length)
         buffer.put(featBytes)
@@ -75,6 +86,16 @@ object TrainingSerializers:
 
     def deserialize(bytes: Array[Byte]): Try[TrainingConfig] = Try {
       val buffer = ByteBuffer.wrap(bytes)
+
+      val trainLen = buffer.getInt
+      val trainBytes = new Array[Byte](trainLen)
+      buffer.get(trainBytes)
+      val trainSet = dataSer.deserialize(trainBytes).get
+
+      val testLen = buffer.getInt
+      val testBytes = new Array[Byte](testLen)
+      buffer.get(testBytes)
+      val testSet = dataSer.deserialize(testBytes).get
 
       val featLen = buffer.getInt
       val featBytes = new Array[Byte](featLen)
@@ -96,5 +117,5 @@ object TrainingSerializers:
       val seedVal = buffer.getLong
       val seed = if (hasSeed) Some(seedVal) else None
 
-      TrainingConfig(Nil, Nil, features, hp, epochs, batchSize, seed)
+      TrainingConfig(trainSet, testSet, features, hp, epochs, batchSize, seed)
     }

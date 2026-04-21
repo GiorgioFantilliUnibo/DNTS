@@ -16,6 +16,7 @@ import domain.serialization.GossipSerializers.given
 import domain.serialization.ModelSerializers.given
 import domain.serialization.ControlCommandSerializers.given
 import domain.serialization.TrainingSerializers.given
+import domain.serialization.DatasetSerializers.given
 import actors.gossip.GossipActor.GossipCommand
 import actors.gossip.GossipActor.ControlCommand
 import actors.gossip.GossipActor.GossipCommand.HandleRemoteModel
