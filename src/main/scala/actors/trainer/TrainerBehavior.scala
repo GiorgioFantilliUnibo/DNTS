@@ -64,11 +64,7 @@ private[trainer] class TrainerBehavior(
           replyTo ! MetricsCalculated(0.0, 0.0, 0)
           Behaviors.same
 
-        case TrainerCommand.Stop =>
-          monitor.foreach(_ ! MonitorCommand.InternalStop)
-          
-          timers.cancelAll()
-          Behaviors.stopped
+        case TrainerCommand.Stop => handleStop()
 
         case _ => Behaviors.unhandled
 
@@ -133,9 +129,7 @@ private[trainer] class TrainerBehavior(
           replyTo ! MetricsCalculated(0.0, 0.0, 0)
           Behaviors.same
 
-        case TrainerCommand.Stop =>
-          timers.cancelAll()
-          Behaviors.stopped
+        case TrainerCommand.Stop => handleStop()
 
         case _ => Behaviors.unhandled
 
@@ -164,10 +158,7 @@ private[trainer] class TrainerBehavior(
             modelActor ! ModelCommand.ClearSnapshots
 
             monitor.foreach(_ ! MonitorCommand.SimulationFinished)
-            gossip.foreach(_ ! GossipCommand.StopGossipTick)
-            consensus.foreach(_ ! StopTickConsensus)
-
-            paused(trainConfig, currentDataset, rand, (currentEpoch, currentIdx), monitor, gossip, consensus)
+            finished(trainConfig, currentDataset, rand, (currentEpoch, currentIdx), monitor, gossip, consensus)
           else
             val batch = currentDataset.slice(idx, idx + trainConfig.batchSize)
 
@@ -207,9 +198,7 @@ private[trainer] class TrainerBehavior(
           timers.cancelAll()
           paused(trainConfig, currentDataset, rand, (currentEpoch, currentIdx), monitor, gossip, consensus)
 
-        case TrainerCommand.Stop =>
-          timers.cancelAll()
-          Behaviors.stopped
+        case TrainerCommand.Stop => handleStop()
 
         case _ => Behaviors.same
 
@@ -247,8 +236,36 @@ private[trainer] class TrainerBehavior(
           )
           Behaviors.same
 
-        case TrainerCommand.Stop =>
-          timers.cancelAll()
-          Behaviors.stopped
+        case TrainerCommand.Stop => handleStop()
 
         case _ => Behaviors.same
+
+  /**
+   * Finished state (Post-training).
+   */
+  private def finished(
+    trainConfig: TrainingConfig,
+    currentDataset: List[LabeledPoint2D],
+    rand: Random,
+    resumePos: (Int, Int),
+    monitor: Option[ActorRef[MonitorCommand]],
+    gossip: Option[ActorRef[GossipCommand]],
+    consensus: Option[ActorRef[ConsensusCommand]]
+  ): Behavior[TrainerMessage] =
+
+    Behaviors.receive: (ctx, msg) =>
+      msg match
+        case TrainerCommand.CalculateMetrics(model, replyTo) =>
+          val trainLoss = TrainingCore.computeDatasetLoss(model, trainConfig.trainSet)
+          val testLoss = TrainingCore.computeDatasetLoss(model, trainConfig.testSet)
+
+          replyTo ! MetricsCalculated(trainLoss, testLoss, trainConfig.epochs)
+          Behaviors.same
+
+        case TrainerCommand.Stop => handleStop()
+        case _ => Behaviors.same
+
+
+  private def handleStop(): Behavior[TrainerMessage] = 
+    timers.cancelAll()
+    Behaviors.stopped

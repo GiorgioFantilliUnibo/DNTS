@@ -153,9 +153,9 @@ object TrainerProtocol:
      * Start the actual training loop after recovering maturity from the model.
      * 
      * @param epoch The recovered epoch to start/resume from.
-     * @param index The recovered index to start/resume from.
+     * @param idx The recovered index to start/resume from.
      */
     private[trainer] final case class StartWithMaturity(
        epoch: Int,
        idx: Int
-    ) extends PrivateTrainerCommand
+    ) extends PrivateTrainerCommand

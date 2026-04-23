@@ -10,7 +10,7 @@ import domain.data.{Label, LabeledPoint2D, Point2D}
 import domain.training.Strategies.Losses.mse
 import actors.trainer.TrainerActor.{TrainerCommand, TrainingConfig}
 import actors.model.ModelActor.ModelCommand
-import actors.trainer.TrainerActor
+import actors.trainer.{TrainerActor, TrainerProtocol}
 import config.{AppConfig, ProductionConfig}
 
 class TrainerActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with Matchers {
@@ -106,5 +106,36 @@ class TrainerActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     val msgAfterResume = modelProbe.expectMessageType[ModelCommand]
 
     msgAfterResume shouldBe a[ModelCommand]
+  }
+
+  test("TrainerActor should transition to finished state and clear snapshots when training completes") {
+    val modelProbe = createTestProbe[ModelCommand]()
+    val monitorProbe = createTestProbe[actors.monitor.MonitorActor.MonitorCommand]()
+    val trainer = spawn(TrainerActor(modelProbe.ref))
+
+    trainer ! TrainerCommand.RegisterServices(
+      monitorProbe.ref,
+      createTestProbe[actors.gossip.GossipActor.GossipCommand]().ref,
+      createTestProbe[actors.gossip.configuration.ConfigurationProtocol.ConfigurationCommand]().ref,
+      createTestProbe[actors.gossip.consensus.ConsensusProtocol.ConsensusCommand]().ref
+    )
+
+    val completionConfig = dummyConfig.copy(epochs = 1, batchSize = 2)
+    trainer ! TrainerCommand.SetTrainConfig(completionConfig)
+    trainer ! TrainerCommand.Start(dummyData, Nil)
+
+    val askMsg1 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg1.replyTo ! dummyModel
+    val askMsg2 = modelProbe.expectMessageType[ModelCommand.GetModel]
+    askMsg2.replyTo ! dummyModel
+    modelProbe.expectMessageType[ModelCommand.ApplyGradients]
+
+    monitorProbe.expectMessageType[actors.monitor.MonitorActor.MonitorCommand.StartWithData]
+    modelProbe.expectMessage(ModelCommand.ClearSnapshots)
+    monitorProbe.expectMessage(actors.monitor.MonitorActor.MonitorCommand.SimulationFinished)
+
+    val replyProbe = createTestProbe[TrainerProtocol.MetricsCalculated]()
+    trainer ! TrainerCommand.CalculateMetrics(dummyModel, replyProbe.ref)
+    replyProbe.expectMessageType[TrainerProtocol.MetricsCalculated]
   }
 }

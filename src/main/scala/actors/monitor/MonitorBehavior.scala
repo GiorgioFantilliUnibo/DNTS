@@ -177,7 +177,6 @@ private[monitor] class MonitorBehavior(
 
         case MonitorCommand.SimulationFinished =>
           context.log.info("Monitor: Simulation Finished naturally.")
-          timers.cancelAll()
 
           modelActor ! ModelCommand.GetMetrics(replyTo = context.self)
 
@@ -200,7 +199,6 @@ private[monitor] class MonitorBehavior(
         case MonitorCommand.InternalResume =>
           context.log.info("Monitor: Remote RESUME command.")
           boundary.setPausedState(false)
-          timers.startTimerAtFixedRate(PrivateMonitorCommand.TickMetrics, appConfig.metricsInterval)
           active(snapshot)
 
         case MonitorCommand.StopSimulation =>
@@ -217,6 +215,10 @@ private[monitor] class MonitorBehavior(
         case MonitorCommand.PeerCountChanged(active, total) =>
           boundary.updatePeerDisplay(active, total)
           paused(snapshot.copy(activePeers = active, totalPeers = total))
+
+        case PrivateMonitorCommand.TickMetrics =>
+          modelActor ! ModelCommand.GetMetrics(replyTo = context.self)
+          Behaviors.same
 
         case MonitorCommand.ViewUpdateResponse(epoch, model, trainLoss, testLoss, consensus) =>
           context.log.info(s"Monitor Update - Train Loss: $trainLoss, Test Loss: $testLoss, Consensus Loss: $consensus")
