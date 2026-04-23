@@ -86,7 +86,7 @@ object ProductionConfig extends AppConfig:
   override final val gossipRequestConfig: FiniteDuration = 3.seconds
 
   /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
-  override final val snapshotInterval: FiniteDuration = 10.seconds
+  override final val snapshotInterval: FiniteDuration = 3.seconds
 
 
   private final val snapshotsDir: String = "./data/"

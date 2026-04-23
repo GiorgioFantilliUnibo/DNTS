@@ -53,7 +53,6 @@ private[model] class ModelBehavior(
 
           timers.startTimerWithFixedDelay(
             ModelCommand.TakeSnapshot,
-            ModelCommand.TakeSnapshot,
             config.snapshotInterval
           )
 
@@ -83,6 +82,7 @@ private[model] class ModelBehavior(
     currentConsensus: Double,
     trainerActor: ActorRef[TrainerCommand]
   )(using Optimizer): Behavior[ModelCommand] =
+
     Behaviors.receive: (_, message) =>
       message match
         case ModelCommand.ApplyGradients(grads) =>
@@ -142,19 +142,11 @@ private[model] class ModelBehavior(
           Behaviors.same
 
         case ModelCommand.StopSimulation =>
+          clearSnapshots()
           timers.cancelAll()
           Behaviors.stopped
 
-        case ModelCommand.ClearSnapshots =>
-          try {
-            Files.deleteIfExists(Paths.get(config.modelSnapshotPath(getPort)))
-            Files.deleteIfExists(Paths.get(config.trainingSnapshotPath(getPort)))
-            context.log.info("Model: Snapshots cleared from disk.")
-          } catch {
-            case e: Exception =>
-              context.log.error(s"Model: Error clearing snapshots: ${e.getMessage}")
-          }
-          Behaviors.same
+        case ModelCommand.ClearSnapshots => clearSnapshots()
 
         case ModelCommand.TakeSnapshot =>
           val path = config.modelSnapshotPath(getPort)
@@ -166,3 +158,15 @@ private[model] class ModelBehavior(
           Behaviors.same
 
         case _ => Behaviors.unhandled
+
+
+  private def clearSnapshots(): Behavior[ModelCommand] =
+    try {
+      Files.deleteIfExists(Paths.get(config.modelSnapshotPath(getPort)))
+      Files.deleteIfExists(Paths.get(config.trainingSnapshotPath(getPort)))
+      context.log.info("Model: Snapshots cleared from disk.")
+    } catch {
+      case e: Exception =>
+        context.log.error(s"Model: Error clearing snapshots: ${e.getMessage}")
+    }
+    Behaviors.same

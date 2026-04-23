@@ -329,7 +329,6 @@ class RootBehavior(
       Regularizers.fromConfig(conf.hyperParams.regularization)
     )
 
-    // Structural integration for recovery: load if present, otherwise fresh init.
     val recoveredModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
     val recoveredConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
 
