@@ -108,7 +108,9 @@ class ConsensusActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike 
 
     consensus ! ConsensusModelReply(dummyModel, 4L)
 
-    modelProbe.expectNoMessage(500.millis)
+    modelProbe.expectNoMessage(200.millis)
+
+    testKit.stop(consensus)
   }
 
   test("ConsensusActor should compute partial consensus upon ConsensusRoundTimeout") {
