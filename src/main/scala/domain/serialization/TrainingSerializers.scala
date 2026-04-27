@@ -7,9 +7,17 @@ import domain.network.Regularization.{ElasticNet, L1, L2, None as RegNone}
 
 import java.nio.ByteBuffer
 import scala.util.Try
+import java.nio.charset.StandardCharsets
 
+
+/**
+ * Binary serializers for training configurations and related components.
+ */
 object TrainingSerializers:
 
+  /**
+   * Serializer for [[Regularization]] strategies.
+   */
   given regularizationSerializer: Serializer[Regularization] with
     extension (reg: Regularization) 
       def serialize: Array[Byte] =
@@ -36,7 +44,15 @@ object TrainingSerializers:
         case _ => throw new IllegalArgumentException("Unknown Regularization type")
     }
 
-
+  /**
+   * Serializer for [[TrainingConfig]].
+   * Orchestrates the serialization of the training configuration, including simulation ID,
+   * datasets, features, hyperparameters, and training parameters.
+   *
+   * @param featSer The implicit [[Serializer]] for the list of [[Feature]].
+   * @param regSer  The implicit [[Serializer]] for [[Regularization]].
+   * @param dataSer The implicit [[Serializer]] for the dataset (List of [[LabeledPoint2D]]).
+   */
   given trainingConfigSerializer(
     using
       featSer: Serializer[List[Feature]],
@@ -46,12 +62,14 @@ object TrainingSerializers:
 
     extension (conf: TrainingConfig) 
       def serialize: Array[Byte] =
+        val idBytes = conf.simulationId.getBytes(StandardCharsets.UTF_8)
         val featBytes = conf.features.serialize
         val regBytes = conf.hp.regularization.serialize
         val trainBytes = conf.trainSet.serialize
         val testBytes = conf.testSet.serialize
 
         val totalSize =
+          4 + idBytes.length +
           4 + trainBytes.length +
           4 + testBytes.length +
           4 + featBytes.length +
@@ -62,6 +80,9 @@ object TrainingSerializers:
           9
 
         val buffer = ByteBuffer.allocate(totalSize)
+
+        buffer.putInt(idBytes.length)
+        buffer.put(idBytes)
 
         buffer.putInt(trainBytes.length)
         buffer.put(trainBytes)
@@ -86,6 +107,11 @@ object TrainingSerializers:
 
     def deserialize(bytes: Array[Byte]): Try[TrainingConfig] = Try {
       val buffer = ByteBuffer.wrap(bytes)
+
+      val idLen = buffer.getInt
+      val idBytes = new Array[Byte](idLen)
+      buffer.get(idBytes)
+      val simulationId = new String(idBytes, StandardCharsets.UTF_8)
 
       val trainLen = buffer.getInt
       val trainBytes = new Array[Byte](trainLen)
@@ -117,5 +143,5 @@ object TrainingSerializers:
       val seedVal = buffer.getLong
       val seed = if (hasSeed) Some(seedVal) else None
 
-      TrainingConfig(trainSet, testSet, features, hp, epochs, batchSize, seed)
+      TrainingConfig(simulationId, trainSet, testSet, features, hp, epochs, batchSize, seed)
     }

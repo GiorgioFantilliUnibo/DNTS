@@ -122,6 +122,7 @@ class GossipActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wit
     trainerProbe.expectMessage(TrainerCommand.Resume)
 
     val trainConfig = TrainingConfig(
+      "",
       Nil,
       Nil,
       Nil,

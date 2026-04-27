@@ -40,6 +40,7 @@ class MonitorActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     .build()
 
   private val dummyConfig = TrainingConfig(
+    simulationId = "",
     trainSet = Nil,
     testSet = Nil,
     features = List(dummyFeatures),

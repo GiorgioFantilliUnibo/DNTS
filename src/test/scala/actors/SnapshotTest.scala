@@ -62,6 +62,7 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
   )
 
   private val dummyConfig = TrainingConfig(
+    simulationId = "",
     trainSet = dummyDataset,
     testSet = dummyDataset,
     features = List(Feature.X),

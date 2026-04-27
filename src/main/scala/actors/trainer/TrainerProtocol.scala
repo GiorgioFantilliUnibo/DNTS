@@ -25,6 +25,7 @@ object TrainerProtocol:
    * @param seed      Optional seed for deterministic shuffling.
    */
   case class TrainingConfig(
+    simulationId: String,
     trainSet: List[LabeledPoint2D],
     testSet: List[LabeledPoint2D],
     features: List[Feature],

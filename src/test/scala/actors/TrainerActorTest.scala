@@ -30,6 +30,7 @@ class TrainerActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
   )
 
   private final val dummyConfig = TrainingConfig(
+    simulationId = "",
     trainSet = dummyData,
     testSet = Nil,
     features = List(dummyFeatures),

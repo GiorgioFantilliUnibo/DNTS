@@ -8,8 +8,19 @@ import java.nio.charset.StandardCharsets
 import scala.util.Try
 
 
+/**
+ * Binary serializers for [[ControlCommand]] messages.
+ */
 object ControlCommandSerializers:
 
+  /**
+   * Serializer for [[ControlCommand]].
+   * Handles the serialization of various control commands (e.g., GlobalPause, GlobalResume, GlobalStop,
+   * and PrepareClient) by encoding them into a binary format.
+   *
+   * @param modelSer  The implicit [[Serializer]] for [[Model]].
+   * @param configSer The implicit [[Serializer]] for [[TrainingConfig]].
+   */
   given controlCommandSerializer(
     using
       modelSer: Serializer[Model],

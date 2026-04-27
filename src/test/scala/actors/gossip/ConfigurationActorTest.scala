@@ -25,7 +25,7 @@ class ConfigurationActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteL
     .build()
 
   private val dummyTrainConfig = TrainingConfig(
-    trainSet = Nil, testSet = Nil, features = dummyFeatures,
+    simulationId = "", trainSet = Nil, testSet = Nil, features = dummyFeatures,
     hp = null, epochs = 1, batchSize = 1, seed = None
   )
 
