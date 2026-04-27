@@ -44,7 +44,7 @@ private[configuration] class ConfigurationBehavior(
           timers.startTimerWithFixedDelay(
             ConfigurationProtocol.TickRequest,
             ConfigurationProtocol.TickRequest,
-            config.gossipInterval)
+            config.configurationInterval)
           Behaviors.same
 
         case ConfigurationProtocol.StopTickRequest =>
