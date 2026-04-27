@@ -33,6 +33,7 @@ import domain.data.dataset.{DataModelFactory, DatasetGenerator, shuffle}
 import domain.data.util.Space
 import view.*
 import domain.serialization.PersistenceManager
+import java.util.UUID
 
 import domain.serialization.ModelSerializers.given
 import domain.serialization.NetworkSerializers.given
@@ -155,11 +156,35 @@ class RootBehavior(
     Behaviors.receive: (ctx, msg) =>
       msg match
         case RootCommand.ConfirmInitialConfiguration(seedID, model, trainConfig) =>
-          val regularizationStrategy = Regularizers.fromConfig(trainConfig.hp.regularization)
-          val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, regularizationStrategy)
-          modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
-          monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
-          trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+          val port = context.system.address.port.getOrElse(0)
+          val trainPath = appConfig.trainingSnapshotPath(port)
+          val modelPath = appConfig.modelSnapshotPath(port)
+
+          val localConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
+          val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
+
+          if (localConfig.exists(_.simulationId == trainConfig.simulationId)) {
+            context.log.info(s"Root: Peer recovery for simulation ${trainConfig.simulationId}")
+
+            val recoveredConfig = localConfig.get
+            val recoveredModel = localModel.getOrElse(model)
+
+            val optimizer = Optimizers.SGD(recoveredConfig.hp.learningRate, Regularizers.fromConfig(recoveredConfig.hp.regularization))
+
+            modelActor ! ModelCommand.Initialize(recoveredModel, optimizer, trainerActor)
+            monitorActor ! MonitorCommand.Initialize(seedID, recoveredModel, recoveredConfig)
+            trainerActor ! TrainerCommand.SetTrainConfig(recoveredConfig)
+
+            if (recoveredConfig.trainSet.nonEmpty) {
+              clusterManager ! ClusterProtocol.StartSimulation
+              trainerActor ! TrainerCommand.Start(recoveredConfig.trainSet, recoveredConfig.testSet)
+            }
+          } else {
+            val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, Regularizers.fromConfig(trainConfig.hp.regularization))
+            modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
+            monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
+            trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+          }
           Behaviors.same
 
         case RootCommand.DistributedDataset(trainShard, testSet) =>
@@ -192,11 +217,11 @@ class RootBehavior(
             val fileConf = ConfigLoader.load(path)
             context.log.info(s"Root: Configuration loaded from $path")
 
-            val (model, tConfig, optimizer) = tryRecoveryOrInitialize(fileConf)
-            
-            modelActor   ! ModelCommand.Initialize(model, optimizer, trainerActor)
+            val (model, tConfig, optimizer) = initializeFreshState(fileConf)
+
+            modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
             monitorActor ! MonitorCommand.Initialize(myAddress, model, tConfig)
-            
+
             configurationActor ! ConfigurationProtocol.ShareConfig(myAddress, model, tConfig)
             trainerActor ! TrainerCommand.SetTrainConfig(tConfig)
 
@@ -303,6 +328,7 @@ class RootBehavior(
    */
   private def createTrainConfig(conf: FileConfig): TrainingConfig =
     TrainingConfig(
+      simulationId = UUID.randomUUID().toString,
       trainSet = Nil,
       testSet = Nil,
       features = conf.features,
@@ -313,29 +339,16 @@ class RootBehavior(
     )
 
   /**
-   * Attempts to recover the simulation state from local snapshots.
-   * If snapshots are missing or corrupted, it falls back to creating a fresh Model and TrainingConfig.
+   * Initializes the core components required for a fresh training session.
+   * It sets up the Stochastic Gradient Descent (SGD) optimizer and delegates the creation
+   * of the neural network model and the training configuration.
    *
-   * @param conf The [[FileConfig]] defining the baseline simulation setup.
-   * @return A tuple containing the initialized [[Model]], [[TrainingConfig]], and [[Optimizers.SGD]].
+   * @param conf The [[FileConfig]] containing the specifications for the model architecture, hyperparameters, and training settings.
+   * @return A tuple containing the newly instantiated [[Model]], the corresponding [[TrainingConfig]], and the initialized [[Optimizers.SGD]] optimizer.
    */
-  private def tryRecoveryOrInitialize(conf: FileConfig): (Model, TrainingConfig, Optimizers.SGD) =
-    val port = context.system.address.port.getOrElse(0)
-    val modelPath = appConfig.modelSnapshotPath(port)
-    val trainPath = appConfig.trainingSnapshotPath(port)
-
+  private def initializeFreshState(conf: FileConfig): (Model, TrainingConfig, Optimizers.SGD) =
     val optimizer = new Optimizers.SGD(
       conf.hyperParams.learningRate,
       Regularizers.fromConfig(conf.hyperParams.regularization)
     )
-
-    val recoveredModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
-    val recoveredConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
-
-    (recoveredModel, recoveredConfig) match
-      case (Some(m), Some(c)) =>
-        context.log.info(s"Root: State RECOVERED from snapshots (Maturity: ${m.maturity})")
-        (m, c, optimizer)
-      case _ =>
-        context.log.info("Root: No snapshots found or recovery failed. Initializing fresh state.")
-        (createModel(conf), createTrainConfig(conf), optimizer)
+    (createModel(conf), createTrainConfig(conf), optimizer)
