@@ -21,7 +21,7 @@ class CliTest extends AnyFunSuite with Matchers:
   test("CliParser should correctly parse a complete Client command"):
     val args = List("--role", NodeRole.Client.toString, "--ip", "127.0.0.1", "--port", "2552")
     val expected = ParseResult.Success(
-      CliOptions(role = Some(NodeRole.Client), targetIp = Some("127.0.0.1"), targetPort = Some(2552))
+      CliOptions(role = Some(NodeRole.Client), seedAddress = Some("127.0.0.1"), port = Some(2552))
     )
 
     CliParser.parse(args) shouldBe expected
@@ -43,12 +43,12 @@ class CliTest extends AnyFunSuite with Matchers:
     opts.validate shouldBe a [Right[?, ?]]
 
   test("CliOptions should fail validation for Client missing IP"):
-    val opts = CliOptions(role = Some(NodeRole.Client), targetPort = Some(2552))
+    val opts = CliOptions(role = Some(NodeRole.Client), port = Some(2552))
     
     opts.validate shouldBe a [Left[?, ?]]
 
   test("CliOptions should fail validation for Client missing Port"):
-    val opts = CliOptions(role = Some(NodeRole.Client), targetIp = Some("1.1.1.1"))
+    val opts = CliOptions(role = Some(NodeRole.Client), seedAddress = Some("1.1.1.1"))
     
     opts.validate shouldBe a [Left[?, ?]]
     

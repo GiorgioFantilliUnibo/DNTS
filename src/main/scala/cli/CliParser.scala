@@ -34,14 +34,17 @@ object CliParser:
   private val HelpText =
     s"""
       |Usage:
-      |  Master (Seed): run --role ${NodeRole.Seed.toString} [--config <file>] [--port <local-port>]
-      |  Worker (Client): run --role ${NodeRole.Client.toString} --ip <seed-ip> --port <seed-port> [--config <file>]
+      |  Master (Seed): run --role ${NodeRole.Seed.toString} [--config <file>] --port <local-port>
+      |  Worker (Client): run --role ${NodeRole.Client.toString} --seedName <seed-ip-port> --port <current-node-port>
+      |  [--config
+      |  <file>]
       |
       |Options:
       |  --role <${NodeRole.validOptions}>   Defines the node role.
       |  --config <path>                     Path to the simulation configuration file, required only for Master Node (optional).
-      |  --ip <string>                       IP address of the remote cluster (required for client).
-      |  --port <int>                        Port of the remote cluster (required for client).
+      |  --cluster                           Cluster name (required).
+      |  --seedAddress <string>              <ip:port> of the seed to reach  (required for client).
+      |  --port <int>                        Port that will be used as identifier (required).
       |  --help                              Show this message.
       |""".stripMargin
 
@@ -75,12 +78,15 @@ object CliParser:
       case "--config" :: path :: tail =>
         parseRec(tail, current.copy(configFile = Some(path)))
 
-      case "--ip" :: value :: tail =>
-        parseRec(tail, current.copy(targetIp = Some(value)))
+      case "--cluster" :: name :: tail =>
+        parseRec(tail, current.copy(cluster = Some(name)))
+
+      case "--seedAddress" :: value :: tail =>
+          parseRec(tail, current.copy(seedAddress = Some(value)))
 
       case "--port" :: value :: tail =>
         value.toIntOption match
-          case Some(p) => parseRec(tail, current.copy(targetPort = Some(p)))
+          case Some(p) => parseRec(tail, current.copy(port = Some(p)))
           case None    => ParseResult.Failure(s"Invalid port number: '$value'.")
 
       case unknown :: _ =>
