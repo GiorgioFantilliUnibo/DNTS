@@ -3,7 +3,12 @@ package app
 import akka.actor.typed.ActorSystem
 import config.{AkkaConfig, AppConfig, ProductionConfig}
 import actors.root.RootActor
+import akka.actor.Address
 import cli.{CliParser, ParseResult}
+import config.ProductionConfig.clusterNodesLogFileName
+import domain.serialization.FileNodeRepository
+
+import java.nio.file.Paths
 
 /**
  * Application Entry Point.
@@ -46,12 +51,17 @@ object Main:
             System.err.println(s"Configuration Error: $errorMsg")
             sys.exit(1)
 
-          case Right((role, configPath, clusterIp, clusterPort)) =>
+          case Right((role, clusterName, configPath, clusterIp, clusterPort)) =>
             println(s">>> Starting Node with Role: $role")
 
             given appConfig: AppConfig = ProductionConfig
 
-            val akkaConfig = AkkaConfig.load(role, clusterIp, clusterPort)
+            val repo = FileNodeRepository(Paths.get(clusterNodesLogFileName))
+
+            val knownNodes = repo.getKnownNodes
+            val knownNodesAddress = knownNodes.map(address => s""","${address.toString}"""").mkString("")
+
+            val akkaConfig = AkkaConfig.load(role, clusterName.get, clusterIp, clusterPort, knownNodesAddress)
 
             val rootBehavior = RootActor(
               role = role,
@@ -59,4 +69,4 @@ object Main:
               akkaConfig
             )
 
-            ActorSystem(rootBehavior, "ClusterSystem", akkaConfig)
+            ActorSystem(rootBehavior, clusterName.get, akkaConfig)

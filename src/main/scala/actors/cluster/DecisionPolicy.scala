@@ -74,7 +74,8 @@ object JoiningPolicy extends DecisionPolicy :
       case NodeUp(node) =>
         List(
           NotifyMonitor,
-          NotifyReceptionist(NotifyAddNode(node.address))
+          NotifyReceptionist(NotifyAddNode(node.address)),
+          LogNode(node.address)
         )
 
       case NodeUnreachable(node) if node.roles.contains(NodeRole.Seed.id) =>

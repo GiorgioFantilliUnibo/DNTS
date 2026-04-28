@@ -1,10 +1,15 @@
 package config
 
 import actors.root.RootProtocol.NodeRole
+import actors.root.RootProtocol.NodeRole.{Client, Seed}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config
+
 import java.net.NetworkInterface
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
+import java.nio.file.{Files, Paths}
+import java.util.UUID
+
 
 object AkkaConfig :
 
@@ -19,15 +24,15 @@ object AkkaConfig :
       .lastOption
       .getOrElse("127.0.0.1")
 
-  def load(role: NodeRole, clusterIp: Option[String], clusterPort: Option[Int]): Config =
+  def load(role: NodeRole, clusterName: String, seedNodeAddress: Option[String], nodePort: Option[Int],
+           knownNodes: String): Config =
 
-    val port = clusterPort.getOrElse("5082")
-    val seed =
-      clusterIp match
-        case Some(ip) =>
-          s""""akka://ClusterSystem@$ip""""
-        case None =>
-          s""""akka://ClusterSystem@$getLocalIp:$port""""
+    val port = nodePort.getOrElse("5082")
+    val seed = seedNodeAddress match
+      case Some(address) =>
+        s""""akka://$clusterName@$address""""
+      case None =>
+        s""""akka://$clusterName@$getLocalIp:$port"$knownNodes"""
 
     ConfigFactory.parseString(
       s"""

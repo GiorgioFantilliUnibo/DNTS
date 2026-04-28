@@ -1,5 +1,6 @@
 package domain.serialization
 
+import akka.actor.Address
 import domain.network.Model
 
 object Exporters:
@@ -51,3 +52,22 @@ object Exporters:
          | hidden-layers = $hiddenLayersJson
          | output-layer = $outputLayerJson
          |}""".stripMargin
+
+
+  given addressSetExporter: Exporter[Set[Address]] with
+    def jsonExport(addresses: Set[Address]): String =
+
+      def exportAddress(address: Address): String =
+        val host = address.host.map(h => s""""$h"""").getOrElse("null")
+        val port = address.port.map(_.toString).getOrElse("null")
+
+        s"""{
+           |  "protocol": "${address.protocol}",
+           |  "system": "${address.system}",
+           |  "host": $host,
+           |  "port": $port
+           |}""".stripMargin
+
+      addresses
+        .map(exportAddress)
+        .mkString("[\n", ",\n", "\n]")

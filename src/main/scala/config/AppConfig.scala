@@ -29,6 +29,8 @@ trait AppConfig:
   /** The loss function used to measure the network performance. */
   def lossFunction: LossFunction
 
+  def clusterNodesLogFileName: String
+
   /**
    * The time interval at which the GossipActor triggers a global consensus round.
    */
@@ -69,3 +71,6 @@ object ProductionConfig extends AppConfig:
   override final val consensusInterval: FiniteDuration = 400.millis
 
   override final val gossipRequestConfig: FiniteDuration = 3.seconds
+
+
+  override final val clusterNodesLogFileName = "cluster_nodes.log"
