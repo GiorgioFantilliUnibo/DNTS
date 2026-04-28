@@ -122,6 +122,7 @@ class GossipActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wit
     trainerProbe.expectMessage(TrainerCommand.Resume)
 
     val trainConfig = TrainingConfig(
+      "",
       Nil,
       Nil,
       Nil,
@@ -144,5 +145,24 @@ class GossipActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wit
     gossip ! GossipCommand.StopGossipTick
 
     discoveryProbe.expectNoMessage(500.millis)
+  }
+
+  test("GossipActor should support passive gossip by continuing to tick indefinitely") {
+    val (gossip, _, modelProbe, _, discoveryProbe, _, _, _) = setup()
+    val peerProbe = createTestProbe[GossipCommand]()
+
+    gossip ! GossipCommand.StartGossipTick
+    
+    gossip ! GossipCommand.TickGossip
+    discoveryProbe.expectMessageType[NodesRefRequest].replyTo ! List(peerProbe.ref)
+    modelProbe.expectMessageType[ModelCommand.GetModel].replyTo ! dummyModel
+    peerProbe.expectMessageType[GossipCommand.HandleRemoteModel]
+
+    gossip ! GossipCommand.TickGossip
+    discoveryProbe.expectMessageType[NodesRefRequest].replyTo ! List(peerProbe.ref)
+    modelProbe.expectMessageType[ModelCommand.GetModel].replyTo ! dummyModel
+    peerProbe.expectMessageType[GossipCommand.HandleRemoteModel]
+    
+    discoveryProbe.expectNoMessage(200.millis)
   }
 }

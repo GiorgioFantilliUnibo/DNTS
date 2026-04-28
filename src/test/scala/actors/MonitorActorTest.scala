@@ -40,6 +40,7 @@ class MonitorActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     .build()
 
   private val dummyConfig = TrainingConfig(
+    simulationId = "",
     trainSet = Nil,
     testSet = Nil,
     features = List(dummyFeatures),
@@ -135,5 +136,31 @@ class MonitorActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     monitor ! MonitorCommand.InternalStop
 
     modelProbe.expectNoMessage(1.second)
+  }
+
+  test("MonitorActor should handle simulation completion and keep responding to updates") {
+    val modelProbe = createTestProbe[ModelCommand]()
+    val gossipProbe = createTestProbe[GossipCommand]()
+    val rootProbe = createTestProbe[RootCommand]()
+
+    val monitor = spawn(MonitorActor(
+      modelProbe.ref,
+      gossipProbe.ref,
+      rootProbe.ref,
+      dummyBoundary,
+    ))
+
+    monitor ! MonitorCommand.Initialize("seed-node", dummyModel, dummyConfig)
+    monitor ! MonitorCommand.StartWithData(dummyConfig.trainSet, dummyConfig.testSet)
+    
+    modelProbe.expectMessageType[ModelCommand.GetMetrics]
+
+    monitor ! MonitorCommand.SimulationFinished
+    modelProbe.expectMessageType[ModelCommand.GetMetrics]
+
+    monitor ! MonitorCommand.ViewUpdateResponse(1, dummyModel, 0.1, 0.1, 0.0)
+    
+    monitor ! MonitorCommand.SimulateCrash
+    modelProbe.expectNoMessage(500.millis)
   }
 }

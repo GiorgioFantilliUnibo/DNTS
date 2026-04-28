@@ -30,15 +30,17 @@ object GossipSerializers:
 
   /** Serializer for [[RequestModelForConsensus]]. */
   given requestModelForConsensusSerializer(using resolver: ActorRefResolver): Serializer[RequestModelForConsensus] with
-    def serialize(cmd: RequestModelForConsensus): Array[Byte] =
-      val refString = resolver.toSerializationFormat(cmd.replyTo)
-      val refBytes = refString.getBytes(StandardCharsets.UTF_8)
 
-      val buffer = ByteBuffer.allocate(4 + refBytes.length + 8)
-      buffer.putInt(refBytes.length)
-      buffer.put(refBytes)
-      buffer.putLong(cmd.roundId)
-      buffer.array()
+    extension (cmd: RequestModelForConsensus) 
+      def serialize: Array[Byte] =
+        val refString = resolver.toSerializationFormat(cmd.replyTo)
+        val refBytes = refString.getBytes(StandardCharsets.UTF_8)
+
+        val buffer = ByteBuffer.allocate(4 + refBytes.length + 8)
+        buffer.putInt(refBytes.length)
+        buffer.put(refBytes)
+        buffer.putLong(cmd.roundId)
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): Try[RequestModelForConsensus] = Try {
       val buffer = ByteBuffer.wrap(bytes)
@@ -51,14 +53,17 @@ object GossipSerializers:
       RequestModelForConsensus(resolver.resolveActorRef(refString), roundId)
     }
 
+
   /** Serializer for [[ConsensusModelReply]]. */
   given consensusModelReplySerializer(using modelSer: Serializer[Model]): Serializer[ConsensusModelReply] with
-    def serialize(cmd: ConsensusModelReply): Array[Byte] =
-      val mBytes = modelSer.serialize(cmd.model)
-      val buffer = java.nio.ByteBuffer.allocate(8 + mBytes.length)
-      buffer.putLong(cmd.roundId)
-      buffer.put(mBytes)
-      buffer.array()
+
+    extension (cmd: ConsensusModelReply) 
+      def serialize: Array[Byte] =
+        val mBytes = cmd.model.serialize
+        val buffer = java.nio.ByteBuffer.allocate(8 + mBytes.length)
+        buffer.putLong(cmd.roundId)
+        buffer.put(mBytes)
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): scala.util.Try[ConsensusModelReply] = scala.util.Try {
       val buffer = java.nio.ByteBuffer.wrap(bytes)
@@ -69,36 +74,42 @@ object GossipSerializers:
       ConsensusModelReply(model, roundId)
     }
 
+
   /** Serializer for [[ConfigurationProtocol.RequestInitialConfig]]. */
   given requestInitialConfigSerializer(using resolver: ActorRefResolver): Serializer[ConfigurationProtocol.RequestInitialConfig] with
-    def serialize(cmd: ConfigurationProtocol.RequestInitialConfig): Array[Byte] =
-      val refString = resolver.toSerializationFormat(cmd.replyTo)
-      refString.getBytes(StandardCharsets.UTF_8)
+
+    extension (cmd: ConfigurationProtocol.RequestInitialConfig) 
+      def serialize: Array[Byte] =
+        val refString = resolver.toSerializationFormat(cmd.replyTo)
+        refString.getBytes(StandardCharsets.UTF_8)
 
     def deserialize(bytes: Array[Byte]): scala.util.Try[ConfigurationProtocol.RequestInitialConfig] = scala.util.Try {
       val refString = new String(bytes, StandardCharsets.UTF_8)
       ConfigurationProtocol.RequestInitialConfig(resolver.resolveActorRef(refString))
     }
 
+
   /** Serializer for [[ConfigurationProtocol.ShareConfig]]. */
-  given shareConfigSerializer(using
-                              modelSer: Serializer[Model],
-                              confSer: Serializer[TrainingConfig]
-                             ): Serializer[ConfigurationProtocol.ShareConfig] with // Usa il percorso completo per sicurezza
+  given shareConfigSerializer(
+    using
+      modelSer: Serializer[Model],
+      confSer: Serializer[TrainingConfig]
+  ): Serializer[ConfigurationProtocol.ShareConfig] with
 
-    def serialize(cmd: ConfigurationProtocol.ShareConfig): Array[Byte] =
-      val idBytes = cmd.seedID.getBytes(StandardCharsets.UTF_8)
-      val mBytes = modelSer.serialize(cmd.model)
-      val cBytes = confSer.serialize(cmd.config)
+    extension (cmd: ConfigurationProtocol.ShareConfig) 
+      def serialize: Array[Byte] =
+        val idBytes = cmd.seedID.getBytes(StandardCharsets.UTF_8)
+        val mBytes = cmd.model.serialize
+        val cBytes = cmd.config.serialize
 
-      val buffer = ByteBuffer.allocate(4 + idBytes.length + 4 + mBytes.length + 4 + cBytes.length)
-      buffer.putInt(idBytes.length)
-      buffer.put(idBytes)
-      buffer.putInt(mBytes.length)
-      buffer.put(mBytes)
-      buffer.putInt(cBytes.length)
-      buffer.put(cBytes)
-      buffer.array()
+        val buffer = ByteBuffer.allocate(4 + idBytes.length + 4 + mBytes.length + 4 + cBytes.length)
+        buffer.putInt(idBytes.length)
+        buffer.put(idBytes)
+        buffer.putInt(mBytes.length)
+        buffer.put(mBytes)
+        buffer.putInt(cBytes.length)
+        buffer.put(cBytes)
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): Try[ConfigurationProtocol.ShareConfig] = Try {
       val buffer = ByteBuffer.wrap(bytes)
@@ -121,38 +132,42 @@ object GossipSerializers:
       ConfigurationProtocol.ShareConfig(seedID, model, config)
     }
 
+
   /** Serializer for [[HandleRemoteModel]]. */
   given handleRemoteModelSerializer: Serializer[HandleRemoteModel] with
-    override def serialize(t: HandleRemoteModel): Array[Byte] =
-      summon[Serializer[Model]].serialize(t.remoteModel)
+    extension (t: HandleRemoteModel) 
+      override def serialize: Array[Byte] =
+        t.remoteModel.serialize
 
     override def deserialize(bytes: Array[Byte]): Try[HandleRemoteModel] =
       summon[Serializer[Model]].deserialize(bytes).map(model => HandleRemoteModel(model))
 
+
   /** Serializer for [[HandleDistributeDataset]]. */
   given distributeDatasetSerializer: Serializer[HandleDistributeDataset] with
 
-    override def serialize(t: HandleDistributeDataset): Array[Byte] =
-      val capacity = 4 + (t.trainShard.size * 20) + 4 + (t.testSet.size * 20)
-      val buffer = ByteBuffer.allocate(capacity)
+    extension (t: HandleDistributeDataset)
+      override def serialize: Array[Byte] =
+        val capacity = 4 + (t.trainShard.size * 20) + 4 + (t.testSet.size * 20)
+        val buffer = ByteBuffer.allocate(capacity)
 
-      //Train Shard
-      buffer.putInt(t.trainShard.size)
-      t.trainShard.foreach { p =>
-        buffer.putDouble(p.point.x)
-        buffer.putDouble(p.point.y)
-        buffer.putInt(p.label.ordinal)
-      }
+        //Train Shard
+        buffer.putInt(t.trainShard.size)
+        t.trainShard.foreach { p =>
+          buffer.putDouble(p.point.x)
+          buffer.putDouble(p.point.y)
+          buffer.putInt(p.label.ordinal)
+        }
 
-      //Test Set
-      buffer.putInt(t.testSet.size)
-      t.testSet.foreach { p =>
-        buffer.putDouble(p.point.x)
-        buffer.putDouble(p.point.y)
-        buffer.putInt(p.label.ordinal)
-      }
+        //Test Set
+        buffer.putInt(t.testSet.size)
+        t.testSet.foreach { p =>
+          buffer.putDouble(p.point.x)
+          buffer.putDouble(p.point.y)
+          buffer.putInt(p.label.ordinal)
+        }
 
-      buffer.array()
+        buffer.array()
 
     override def deserialize(bytes: Array[Byte]): Try[HandleDistributeDataset] = Try {
       val buffer = ByteBuffer.wrap(bytes)
@@ -174,10 +189,12 @@ object GossipSerializers:
       HandleDistributeDataset(trainShard, testSet)
     }
 
+
   /** Serializer for [[HandleControlCommand]]. */
   given handleControlCommandSerializer(using controlSer: Serializer[ControlCommand]): Serializer[HandleControlCommand] with
-    override def serialize(t: HandleControlCommand): Array[Byte] =
-      controlSer.serialize(t.cmd)
+    extension (t: HandleControlCommand) 
+      override def serialize: Array[Byte] =
+        t.cmd.serialize
 
     override def deserialize(bytes: Array[Byte]): Try[HandleControlCommand] =
       controlSer.deserialize(bytes).map(cmd => HandleControlCommand(cmd))

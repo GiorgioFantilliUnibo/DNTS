@@ -148,7 +148,7 @@ class SetupInfoPanel extends JPanel:
         case 0 => "Input"
         case i if i == model.network.layers.size - 1 => "Output"
         case _ => "Hidden"
-      Array[Object]((idx + 1).toString, lType, layer.weights.rows.toString, layer.activation.toString)
+      Array[Object]((idx + 1).toString, lType, layer.weights.rows.toString, layer.activation.name)
     }.toArray
 
     val tableModel = new DefaultTableModel(data, colNames) {

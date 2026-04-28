@@ -27,27 +27,28 @@ object NetworkSerializers:
       activationRegistry: Map[String, Activation]
   ): Serializer[Network] with
 
-    def serialize(net: Network): Array[Byte] =
-      val layersData = net.layers.map { layer =>
-        val nameBytes = layer.activation.name.toLowerCase.getBytes(StandardCharsets.UTF_8)
-        val wBytes = mSer.serialize(layer.weights)
-        val bBytes = vSer.serialize(layer.biases)
-        (nameBytes, wBytes, bBytes)
-      }
+    extension (net: Network) 
+      def serialize: Array[Byte] =
+        val layersData = net.layers.map { layer =>
+          val nameBytes = layer.activation.name.toLowerCase.getBytes(StandardCharsets.UTF_8)
+          val wBytes = layer.weights.serialize
+          val bBytes = layer.biases.serialize
+          (nameBytes, wBytes, bBytes)
+        }
 
-      val totalSize = 4 + layersData.map { case (n, w, b) =>
-        4 + n.length + 4 + w.length + 4 + b.length
-      }.sum
+        val totalSize = 4 + layersData.map { case (n, w, b) =>
+          4 + n.length + 4 + w.length + 4 + b.length
+        }.sum
 
-      val buffer = ByteBuffer.allocate(totalSize)
-      buffer.putInt(net.layers.length)
+        val buffer = ByteBuffer.allocate(totalSize)
+        buffer.putInt(net.layers.length)
 
-      layersData.foreach { case (n, w, b) =>
-        buffer.putInt(n.length); buffer.put(n)
-        buffer.putInt(w.length); buffer.put(w)
-        buffer.putInt(b.length); buffer.put(b)
-      }
-      buffer.array()
+        layersData.foreach { case (n, w, b) =>
+          buffer.putInt(n.length); buffer.put(n)
+          buffer.putInt(w.length); buffer.put(w)
+          buffer.putInt(b.length); buffer.put(b)
+        }
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): Try[Network] = Try {
       val buffer = ByteBuffer.wrap(bytes)

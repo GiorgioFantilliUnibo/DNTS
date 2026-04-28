@@ -9,22 +9,23 @@ import domain.training.{NetworkGradient, LayerGradient}
 object ConsensusOps:
 
   /**
-   * Computes the parameter-wise arithmetic mean of two neural networks.
+   * Computes the parameter-wise weighted average of two neural networks.
    * Both networks must share the exact same topology.
    *
    * @param n1 The first [[Network]].
+   * @param w1 The weight for the first network.
    * @param n2 The second [[Network]].
-   * @return A new [[Network]] instance containing the averaged weights and biases.
-   * @throws IllegalArgumentException if the network topologies differ.
+   * @param w2 The weight for the second network.
+   * @return A new [[Network]] instance containing the weighted averaged weights and biases.
    */
-  def averageModels(n1: Network, n2: Network): Network =
+  def weightedAverageModels(n1: Network, w1: Double, n2: Network, w2: Double): Network =
     require(n1.layers.length == n2.layers.length, "Topology mismatch")
 
     val newLayers = n1.layers.zip(n2.layers).map { (l1, l2) =>
       require(l1.weights.rows == l2.weights.rows && l1.weights.cols == l2.weights.cols)
 
-      val avgWeights = (l1.weights + l2.weights) * 0.5
-      val avgBiases = (l1.biases + l2.biases) * 0.5
+      val avgWeights = (l1.weights * w1) + (l2.weights * w2)
+      val avgBiases = (l1.biases * w1) + (l2.biases * w2)
 
       l1.copy(weights = avgWeights, biases = avgBiases)
     }

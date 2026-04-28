@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets
 import scala.util.Try
 import domain.serialization.Exporters.*
 import scala.jdk.CollectionConverters.*
+import domain.serialization.Exporters.addressSetExporter
 
 class FileNodeRepository(path: Path):
 
@@ -19,7 +20,8 @@ class FileNodeRepository(path: Path):
       AddressJson.parse(content) // parser sotto
 
   def saveNodes(nodes: Set[Address]): Unit =
-    val json = summon[Exporter[Set[Address]]].jsonExport(nodes)
+    //    val json = summon[Exporter[Set[Address]]].jsonExport(nodes)
+    val json = nodes.jsonExport
 
     Try {
       Files.writeString(

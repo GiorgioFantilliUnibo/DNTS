@@ -19,9 +19,10 @@ object ModelSerializers:
    */
   given featureListSerializer: Serializer[List[Feature]] with
 
-    def serialize(features: List[Feature]): Array[Byte] =
-      val names = features.map(_.toString).mkString(",")
-      names.getBytes(StandardCharsets.UTF_8)
+    extension (features: List[Feature])
+      def serialize: Array[Byte] =
+        val names = features.map(_.toString).mkString(",")
+        names.getBytes(StandardCharsets.UTF_8)
 
     def deserialize(bytes: Array[Byte]): Try[List[Feature]] = Try {
       val namesStr = new String(bytes, StandardCharsets.UTF_8)
@@ -39,6 +40,7 @@ object ModelSerializers:
         }.toList
     }
 
+
   /**
    * Composite serializer for the [[Model]].
    * It orchestrates the serialization of the underlying Neural [[Network]]
@@ -48,24 +50,27 @@ object ModelSerializers:
    * @param featureSer The implicit [[Serializer]] for the list of [[Feature]].
    */
   given modelSerializer(
-                         using
-                         netSer: Serializer[Network],
-                         featureSer: Serializer[List[Feature]]
-                       ): Serializer[Model] with
+    using
+      netSer: Serializer[Network],
+      featureSer: Serializer[List[Feature]]
+  ): Serializer[Model] with
 
-    def serialize(model: Model): Array[Byte] =
-      val netBytes = netSer.serialize(model.network)
-      val featBytes = featureSer.serialize(model.features)
+    extension (model: Model) 
+      def serialize: Array[Byte] =
+        val netBytes = model.network.serialize
+        val featBytes = model.features.serialize
 
-      val buffer = ByteBuffer.allocate(4 + netBytes.length + 4 + featBytes.length)
+        val buffer = ByteBuffer.allocate(4 + netBytes.length + 4 + featBytes.length + 4)
 
-      buffer.putInt(netBytes.length)
-      buffer.put(netBytes)
+        buffer.putInt(netBytes.length)
+        buffer.put(netBytes)
 
-      buffer.putInt(featBytes.length)
-      buffer.put(featBytes)
+        buffer.putInt(featBytes.length)
+        buffer.put(featBytes)
 
-      buffer.array()
+        buffer.putInt(model.maturity)
+
+        buffer.array()
 
     def deserialize(bytes: Array[Byte]): Try[Model] = Try {
       val buffer = ByteBuffer.wrap(bytes)
@@ -80,5 +85,7 @@ object ModelSerializers:
       buffer.get(featBytes)
       val features = featureSer.deserialize(featBytes).get
 
-      Model(network, features)
+      val maturity = if buffer.hasRemaining then buffer.getInt else 0
+
+      Model(network, features, maturity)
     }

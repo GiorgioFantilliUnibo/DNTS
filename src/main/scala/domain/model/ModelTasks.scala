@@ -4,7 +4,7 @@ package domain.model
 import domain.common.States.State
 import domain.network.Model
 import domain.training.{NetworkGradient, Optimizer}
-import domain.training.Consensus.averageWith
+import domain.training.Consensus.mergeWith
 
 /**
  * Functional tasks for model manipulation.
@@ -33,5 +33,5 @@ object ModelTasks:
    */
   def mergeWith(remoteModel: Model): State[Model, Unit] =
     State: localModel =>
-      val newNet = localModel.network averageWith remoteModel.network
-      (localModel.copy(network = newNet), ())
+      val newModel = localModel mergeWith remoteModel
+      (newModel, ())

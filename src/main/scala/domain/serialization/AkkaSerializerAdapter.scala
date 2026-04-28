@@ -8,6 +8,7 @@ import akka.actor.typed.scaladsl.adapter.*
 
 import domain.network.Model
 import domain.network.Activations.given
+import domain.serialization.Serializer.*
 import domain.serialization.NetworkSerializers.given
 import domain.serialization.LinearAlgebraSerializers.given
 import domain.serialization.Serializer as DomainSerializer
@@ -15,6 +16,7 @@ import domain.serialization.GossipSerializers.given
 import domain.serialization.ModelSerializers.given
 import domain.serialization.ControlCommandSerializers.given
 import domain.serialization.TrainingSerializers.given
+import domain.serialization.DatasetSerializers.given
 import actors.gossip.GossipActor.GossipCommand
 import actors.gossip.GossipActor.ControlCommand
 import actors.gossip.GossipActor.GossipCommand.HandleRemoteModel
@@ -121,7 +123,8 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
   override def toBinary(o: AnyRef): Array[Byte] =
     classToBinding.get(o.getClass) match
       case Some(binding) =>
-        binding.asInstanceOf[TypeBinding[AnyRef]].serializer.serialize(o)
+        val s = binding.asInstanceOf[TypeBinding[AnyRef]].serializer
+        s.serialize(o)
       case None =>
         throw new IllegalArgumentException(s"Serializer not found for type: ${o.getClass.getName}")
 
@@ -136,8 +139,9 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef =
     manifestToBinding.get(manifest) match
       case Some(binding) =>
-        binding.serializer.deserialize(bytes) match
-          case Success(obj) => obj.asInstanceOf[AnyRef]
+        val s = binding.serializer.asInstanceOf[DomainSerializer[AnyRef]]
+        bytes.deserialize(using s) match
+          case Success(obj) => obj
           case Failure(ex)  =>
             throw new IllegalArgumentException(s"Deserialization failed for manifest '$manifest'", ex)
       case None =>

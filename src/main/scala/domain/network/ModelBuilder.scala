@@ -32,13 +32,19 @@ object ModelBuilder:
     hiddenLayers: List[LayerConf],
     seed: Option[Long] = None,
     outputNeurons: Int = 1,
-    outputActivation: Activation = Activations.Sigmoid
+    outputActivation: Activation = Activations.Sigmoid,
+    maturity: Int = 0
   ):
 
     /**
      * Sets a fixed random seed for reproducible weight initialization.
      */
     def withSeed(s: Long): Builder = this.copy(seed = Some(s))
+
+    /**
+     * Sets the initial maturity of the model.
+     */
+    def withMaturity(m: Int): Builder = this.copy(maturity = m)
 
     /**
      * Appends a new hidden layer to the network topology.
@@ -85,4 +91,4 @@ object ModelBuilder:
 
       val finalNetwork = Network(layers :+ Layer(outW, outB, outputActivation))
 
-      Model(finalNetwork, features)
+      Model(finalNetwork, features, maturity = this.maturity)

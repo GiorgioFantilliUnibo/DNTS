@@ -4,13 +4,17 @@ import actors.model.ModelActor.ModelCommand
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.trainer.TrainerActor.TrainerCommand
 import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import config.AppConfig
 import domain.model.ModelTasks
 import domain.training.Optimizer
 import domain.network.Model
+import domain.network.Activations.given
 import domain.serialization.Exporters.given
-import domain.serialization.Exporters.Exporter
+import domain.serialization.PersistenceManager.*
+import domain.serialization.ModelSerializers.given
+import domain.serialization.NetworkSerializers.given
+import domain.serialization.LinearAlgebraSerializers.given
 import ModelConstants.*
 
 import java.nio.charset.StandardCharsets
@@ -24,10 +28,17 @@ private object ModelConstants:
  * Encapsulates the behavior logic for the ModelActor.
  *
  * @param context The actor context.
+ * @param timers  The scheduler for managing periodic snapshot ticks.
  * @param config  Global application configuration.
  *
  */
-private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: AppConfig):
+private[model] class ModelBehavior(
+  context: ActorContext[ModelCommand],
+  timers: TimerScheduler[ModelCommand],
+  config: AppConfig
+):
+
+  private def getPort: Int = context.system.address.port.getOrElse(0)
 
   /**
    * Initial state: Waiting for the model and optimizer initialization.
@@ -39,6 +50,11 @@ private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: 
           ctx.log.info("Model: Model initialized. Switching to active state.")
 
           given Optimizer = optimizer
+
+          timers.startTimerWithFixedDelay(
+            ModelCommand.TakeSnapshot,
+            config.snapshotInterval
+          )
 
           active(
             currentModel = model,
@@ -66,12 +82,13 @@ private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: 
     currentConsensus: Double,
     trainerActor: ActorRef[TrainerCommand]
   )(using Optimizer): Behavior[ModelCommand] =
+
     Behaviors.receive: (_, message) =>
       message match
         case ModelCommand.ApplyGradients(grads) =>
           val (newModel, _) = ModelTasks.applyGradients(grads).run(currentModel)
           active(
-            currentModel = newModel,
+            currentModel = newModel.copy(maturity = currentModel.maturity + 1),
             currentEpoch = currentEpoch,
             currentConsensus = currentConsensus,
             trainerActor = trainerActor
@@ -112,7 +129,7 @@ private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: 
           Behaviors.same
 
         case ModelCommand.ExportToFile =>
-          val jsonModel = summon[Exporter[Model]].jsonExport(currentModel)
+          val jsonModel = currentModel.jsonExport
           val fileName = config.netLogFileName
           val path = Paths.get(fileName)
           try {
@@ -125,6 +142,31 @@ private[model] class ModelBehavior(context: ActorContext[ModelCommand], config: 
           Behaviors.same
 
         case ModelCommand.StopSimulation =>
+          clearSnapshots()
+          timers.cancelAll()
           Behaviors.stopped
-          
+
+        case ModelCommand.ClearSnapshots => clearSnapshots()
+
+        case ModelCommand.TakeSnapshot =>
+          val path = config.modelSnapshotPath(getPort)
+          currentModel.saveToFile(path) match
+            case scala.util.Success(_) =>
+              context.log.debug(s"Model: Snapshot saved to '$path' (maturity=${currentModel.maturity}).")
+            case scala.util.Failure(ex) =>
+              context.log.warn(s"Model: Failed to save snapshot to '$path': ${ex.getMessage}")
+          Behaviors.same
+
         case _ => Behaviors.unhandled
+
+
+  private def clearSnapshots(): Behavior[ModelCommand] =
+    try {
+      Files.deleteIfExists(Paths.get(config.modelSnapshotPath(getPort)))
+      Files.deleteIfExists(Paths.get(config.trainingSnapshotPath(getPort)))
+      context.log.info("Model: Snapshots cleared from disk.")
+    } catch {
+      case e: Exception =>
+        context.log.error(s"Model: Error clearing snapshots: ${e.getMessage}")
+    }
+    Behaviors.same

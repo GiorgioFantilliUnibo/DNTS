@@ -25,6 +25,7 @@ object TrainerProtocol:
    * @param seed      Optional seed for deterministic shuffling.
    */
   case class TrainingConfig(
+    simulationId: String,
     trainSet: List[LabeledPoint2D],
     testSet: List[LabeledPoint2D],
     features: List[Feature],
@@ -148,4 +149,14 @@ object TrainerProtocol:
        epoch: Int, 
        index: Int
     ) extends PrivateTrainerCommand
-    
+
+    /**
+     * Start the actual training loop after recovering maturity from the model.
+     * 
+     * @param epoch The recovered epoch to start/resume from.
+     * @param idx The recovered index to start/resume from.
+     */
+    private[trainer] final case class StartWithMaturity(
+       epoch: Int,
+       idx: Int
+    ) extends PrivateTrainerCommand

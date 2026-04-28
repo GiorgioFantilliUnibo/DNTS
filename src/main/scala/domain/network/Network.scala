@@ -50,8 +50,13 @@ case class Network(layers: List[Layer]):
  *
  * @param network  The underlying neural network structure.
  * @param features The feature engineering pipeline configuration.
+ * @param maturity The level of training achieved.
  */
-case class Model(network: Network, features: List[Feature]):
+case class Model(
+  network: Network,
+  features: List[Feature],
+  maturity: Int = 0
+):
 
   /**
    * Performs a prediction for a given 2D point.

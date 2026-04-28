@@ -2,11 +2,10 @@ package domain.training
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-
-import domain.network.{Network, Layer, Activations}
+import domain.network.{Activations, Layer, Network}
 import domain.data.LinearAlgebra.{Matrix, Vector}
-import domain.training.Consensus._
-import domain.training.consensus.ConsensusMetric
+import domain.training.Consensus.*
+import domain.training.consensus.{ConsensusMetric, ConsensusOps}
 
 class ConsensusTest extends AnyFunSuite with Matchers {
 
@@ -19,10 +18,21 @@ class ConsensusTest extends AnyFunSuite with Matchers {
   ))
 
 
-  test("Network.averageWith should produce a network with averaged weights") {
-    val averagedNet = netA averageWith netB
+  test("ConsensusOps.weightedAverageModels should correctly apply weights") {
+    val weightedNet = ConsensusOps.weightedAverageModels(netA, 0.9, netB, 0.1)
 
-    averagedNet.layers.head.weights(0)(0) shouldBe 0.5
+    weightedNet.layers.head.weights(0)(0) shouldBe (0.1 +- 0.0001)
+  }
+
+  test("Model.mergeWith should apply a 95%-5% weighted average when maturity difference is huge") {
+    val healthyModel = domain.network.Model(netA, Nil, maturity = 100)
+    val recoveredModel = domain.network.Model(netB, Nil, maturity = 5)
+
+    val mergedModel = healthyModel mergeWith recoveredModel
+
+    val mergedWeight = mergedModel.network.layers.head.weights(0)(0)
+    mergedWeight shouldBe (0.05 +- 0.0001)
+    mergedModel.maturity shouldBe 100
   }
 
   test("Network.divergenceFrom should compute correct distance using default metric") {

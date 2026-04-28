@@ -3,7 +3,7 @@ package actors.model
 import actors.model.ModelActor.ModelCommand
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.Behavior
-import config.{AppConfig, ProductionConfig}
+import config.AppConfig
 
 /**
  * This actor is responsible for maintaining the model's state, applying
@@ -20,9 +20,10 @@ object ModelActor:
    * It initializes the actor in an 'idle' state, waiting for the mandatory
    * configuration and initial model structure to be provided via the Initialize command.
    *
+   * @param config Implicit global application configuration.
    * @return A Behavior handling ModelCommand messages.
    */
-  def apply(): Behavior[ModelCommand] =
-    val config : AppConfig = ProductionConfig
+  def apply()(using config: AppConfig): Behavior[ModelCommand] =
     Behaviors.setup: ctx =>
-      ModelBehavior(ctx, config).idle()
+      Behaviors.withTimers: timers =>
+        ModelBehavior(ctx, timers, config).idle()

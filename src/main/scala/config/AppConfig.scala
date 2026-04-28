@@ -29,6 +29,7 @@ trait AppConfig:
   /** The loss function used to measure the network performance. */
   def lossFunction: LossFunction
 
+  /** The file path used to log reachable nodes' addresses */
   def clusterNodesLogFileName: String
 
   /**
@@ -36,7 +37,21 @@ trait AppConfig:
    */
   def consensusInterval: FiniteDuration
   
+  /** The time interval at which the GossipActor sends a synchronization request to a random peer. */
   def gossipRequestConfig: FiniteDuration
+
+  /** The time interval at which the ConfigurationActor polls peers for initial setup. */
+  def configurationInterval: FiniteDuration
+
+  /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
+  def snapshotInterval: FiniteDuration
+
+  /** The file path used to persist the local model snapshot for crash recovery. */
+  def modelSnapshotPath(port: Int): String
+
+  /** The file path used to persist the local training snapshot for crash recovery. */
+  def trainingSnapshotPath(port: Int): String
+
 
 /**
  * Default Production Configuration.
@@ -64,13 +79,26 @@ object ProductionConfig extends AppConfig:
   /** Define Mean Squared Error (MSE) as the standard loss metric. */
   override final val lossFunction: LossFunction = Losses.mse
 
-
-  /**
-   * Global consensus round frequency.
-   */
+  /** Global consensus round frequency. */
   override final val consensusInterval: FiniteDuration = 400.millis
 
+  /** The time interval at which the GossipActor sends a synchronization request to a random peer. */
   override final val gossipRequestConfig: FiniteDuration = 3.seconds
 
 
   override final val clusterNodesLogFileName = "cluster_nodes.log"
+
+  /** Configuration Actor polling frequency for initial setup. */
+  override final val configurationInterval: FiniteDuration = 1.seconds
+
+  /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
+  override final val snapshotInterval: FiniteDuration = 3.seconds
+
+
+  private final val snapshotsDir: String = "./data/"
+
+  /** Default path for the local model snapshot used in crash recovery. */
+  override def modelSnapshotPath(port: Int): String = s"${snapshotsDir}local_model_snapshot_$port.bin"
+
+  /** Default path for the local training snapshot used in crash recovery. */
+  override def trainingSnapshotPath(port: Int): String = s"${snapshotsDir}local_training_snapshot_$port.bin"

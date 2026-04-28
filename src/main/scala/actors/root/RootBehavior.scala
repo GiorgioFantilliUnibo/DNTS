@@ -32,6 +32,15 @@ import com.typesafe.config.Config
 import domain.data.dataset.{DataModelFactory, DatasetGenerator, shuffle}
 import domain.data.util.Space
 import view.*
+import domain.serialization.PersistenceManager
+import java.util.UUID
+
+import domain.serialization.ModelSerializers.given
+import domain.serialization.NetworkSerializers.given
+import domain.serialization.TrainingSerializers.given
+import domain.serialization.DatasetSerializers.given
+import domain.serialization.LinearAlgebraSerializers.given
+import domain.network.Activations.given
 
 /**
  * Encapsulates the behavior logic for the RootActor.
@@ -48,32 +57,19 @@ class RootBehavior(
   akkaConfig: Config
 )(using appConfig: AppConfig):
 
+  private case class SeedPayload(
+    model: Model,
+    trainConfig: TrainingConfig,
+    optimizer: Optimizers.SGD,
+    fileConfig: FileConfig
+  )
+
+
   /**
    * Bootstrap logic: executed immediately upon creation.
    */
   def start(): Behavior[RootCommand] =
     context.log.info(s"Root: Bootstrapping system with role $role...")
-
-    val seedDataPayload = role match
-      case NodeRole.Seed =>
-        val path = configPath.getOrElse("simulation.conf")
-        val fileConf = ConfigLoader.load(path)
-        context.log.info(s"Root: Configuration loaded from $path")
-    
-        val model = createModel(fileConf)
-        val data = generateDataset(fileConf)
-        val tConfig = createTrainConfig(fileConf)
-
-        val optimizer = new Optimizers.SGD(
-          fileConf.hyperParams.learningRate,
-          Regularizers.fromConfig(fileConf.hyperParams.regularization)
-        )
-    
-        Some((model, data, tConfig, optimizer, fileConf))
-
-      case NodeRole.Client =>
-        context.log.info("Root: Client node started. Waiting for cluster configuration...")
-        None
 
     val discoveryActor = context.spawn(DiscoveryActor(GossipPeerState.empty), "discoveryActor")
 
@@ -137,7 +133,7 @@ class RootBehavior(
     configurationActor ! ConfigurationProtocol.StartTickRequest
 
     waitingForStart(
-      seedDataPayload, gossipActor, configurationActor, distributeDatasetActor, consensusActor,
+      None, gossipActor, configurationActor, distributeDatasetActor, consensusActor,
       modelActor, trainerActor, monitorActor, clusterManager, discoveryActor
     )
 
@@ -145,7 +141,7 @@ class RootBehavior(
    * State: Waiting for the Seed Start Simulation command.
    */
   private def waitingForStart(
-    seedDataPayload: Option[(Model, List[LabeledPoint2D], TrainingConfig, Optimizers.SGD, FileConfig)],
+    seedPayload: Option[SeedPayload],
     gossipActor: ActorRef[GossipCommand],
     configurationActor: ActorRef[ConfigurationCommand],
     distributeDatasetActor: ActorRef[DatasetDistributionCommand],
@@ -160,11 +156,35 @@ class RootBehavior(
     Behaviors.receive: (ctx, msg) =>
       msg match
         case RootCommand.ConfirmInitialConfiguration(seedID, model, trainConfig) =>
-          val regularizationStrategy = Regularizers.fromConfig(trainConfig.hp.regularization)
-          val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, regularizationStrategy)
-          modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
-          monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
-          trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+          val port = context.system.address.port.getOrElse(0)
+          val trainPath = appConfig.trainingSnapshotPath(port)
+          val modelPath = appConfig.modelSnapshotPath(port)
+
+          val localConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
+          val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
+
+          if (localConfig.exists(_.simulationId == trainConfig.simulationId)) {
+            context.log.info(s"Root: Peer recovery for simulation ${trainConfig.simulationId}")
+
+            val recoveredConfig = localConfig.get
+            val recoveredModel = localModel.getOrElse(model)
+
+            val optimizer = Optimizers.SGD(recoveredConfig.hp.learningRate, Regularizers.fromConfig(recoveredConfig.hp.regularization))
+
+            modelActor ! ModelCommand.Initialize(recoveredModel, optimizer, trainerActor)
+            monitorActor ! MonitorCommand.Initialize(seedID, recoveredModel, recoveredConfig)
+            trainerActor ! TrainerCommand.SetTrainConfig(recoveredConfig)
+
+            if (recoveredConfig.trainSet.nonEmpty) {
+              clusterManager ! ClusterProtocol.StartSimulation
+              trainerActor ! TrainerCommand.Start(recoveredConfig.trainSet, recoveredConfig.testSet)
+            }
+          } else {
+            val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, Regularizers.fromConfig(trainConfig.hp.regularization))
+            modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
+            monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
+            trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+          }
           Behaviors.same
 
         case RootCommand.DistributedDataset(trainShard, testSet) =>
@@ -173,41 +193,46 @@ class RootBehavior(
           Behaviors.same
 
         case RootCommand.SeedStartSimulation =>
-          val (model, dataset, fileConfig) = seedDataPayload.map(p =>
-            (Some(p._1), Some(p._2), Some(p._5))
-          ).getOrElse((None, None, None))
-
-          (role, model, dataset, fileConfig) match
-            case (NodeRole.Seed, Some(m), Some(d), Some(conf)) =>
-              val trainSize = (d.size * (1.0 - conf.testSplit)).toInt
-              val (globalTrain, globalTest) = d.splitAt(trainSize)
+          seedPayload match
+            case Some(payload) =>
+              val dataset = generateDataset(payload.fileConfig)
+              val trainSize = (dataset.size * (1.0 - payload.fileConfig.testSplit)).toInt
+              val (globalTrain, globalTest) = dataset.splitAt(trainSize)
 
               context.log.info(s"Root: Data Split - Train: ${globalTrain.size}, Test: ${globalTest.size}")
-              distributeDatasetActor ! DatasetDistributionProtocol.RegisterSeed(conf.seed.getOrElse(0))
+              distributeDatasetActor ! DatasetDistributionProtocol.RegisterSeed(payload.fileConfig.seed.getOrElse(0))
               distributeDatasetActor ! DatasetDistributionProtocol.DistributeDataset(globalTrain, globalTest)
               Behaviors.same
 
-            case _ =>
-              context.log.warn("Root: Received Start command but I am a Worker or Data is missing.")
+            case None =>
+              context.log.warn("Root: Received Start command but I am a Worker or Payload is missing.")
               Behaviors.same
 
         case RootCommand.ClusterReady =>
           val myAddress = ctx.system.address.toString
           context.log.info(s"Root: Node $role is now fully connected to the cluster.")
 
-          seedDataPayload match
-            case Some((model, _, trainConfig, optimizer, _)) =>
-              modelActor   ! ModelCommand.Initialize(model, optimizer, trainerActor)
-              monitorActor ! MonitorCommand.Initialize(myAddress, model, trainConfig)
-              context.log.info("Root: Received Start Command. Distributing Data and Model to Cluster...")
+          if role == NodeRole.Seed then
+            val path = configPath.getOrElse("simulation.conf")
+            val fileConf = ConfigLoader.load(path)
+            context.log.info(s"Root: Configuration loaded from $path")
 
-              configurationActor ! ConfigurationProtocol.ShareConfig(myAddress, model, trainConfig)
-              trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+            val (model, tConfig, optimizer) = initializeFreshState(fileConf)
 
-            case None =>
-              context.log.info(s"Root (CLIENT): Cluster Ready via $myAddress. Waiting for Seed Config...")
-          
-          Behaviors.same
+            modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
+            monitorActor ! MonitorCommand.Initialize(myAddress, model, tConfig)
+
+            configurationActor ! ConfigurationProtocol.ShareConfig(myAddress, model, tConfig)
+            trainerActor ! TrainerCommand.SetTrainConfig(tConfig)
+
+            waitingForStart(
+              Some(SeedPayload(model, tConfig, optimizer, fileConf)),
+              gossipActor, configurationActor, distributeDatasetActor, consensusActor,
+              modelActor, trainerActor, monitorActor, clusterManager, discoveryActor
+            )
+          else
+            context.log.info(s"Root (CLIENT): Cluster Ready via $myAddress. Waiting for Seed Config...")
+            Behaviors.same
 
         case RootCommand.ClusterFailed |
              RootCommand.InvalidCommandInBootstrap |
@@ -295,14 +320,15 @@ class RootBehavior(
     data
 
   /**
-   * Constructs the training hyper-parameters and environment settings.
+   * Constructs the training hyperparameters and environment settings.
    *
    * @param conf The [[FileConfig]] defining learning rates, batch sizes, epochs, and regularization.
    *
-   * @return A [[TrainingConfig]] object containing the serialized hyper-parameters and environment setup.
+   * @return A [[TrainingConfig]] object containing the serialized hyperparameters and environment setup.
    */
   private def createTrainConfig(conf: FileConfig): TrainingConfig =
     TrainingConfig(
+      simulationId = UUID.randomUUID().toString,
       trainSet = Nil,
       testSet = Nil,
       features = conf.features,
@@ -311,4 +337,18 @@ class RootBehavior(
       batchSize = conf.batchSize,
       seed = conf.seed
     )
-    
+
+  /**
+   * Initializes the core components required for a fresh training session.
+   * It sets up the Stochastic Gradient Descent (SGD) optimizer and delegates the creation
+   * of the neural network model and the training configuration.
+   *
+   * @param conf The [[FileConfig]] containing the specifications for the model architecture, hyperparameters, and training settings.
+   * @return A tuple containing the newly instantiated [[Model]], the corresponding [[TrainingConfig]], and the initialized [[Optimizers.SGD]] optimizer.
+   */
+  private def initializeFreshState(conf: FileConfig): (Model, TrainingConfig, Optimizers.SGD) =
+    val optimizer = new Optimizers.SGD(
+      conf.hyperParams.learningRate,
+      Regularizers.fromConfig(conf.hyperParams.regularization)
+    )
+    (createModel(conf), createTrainConfig(conf), optimizer)
