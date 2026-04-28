@@ -11,6 +11,10 @@ import actors.root.RootProtocol.RootCommand
 import akka.actor.typed.*
 import akka.actor.typed.scaladsl.*
 import akka.cluster.typed.{Cluster, Down, Leave}
+import config.ProductionConfig.clusterNodesLogFileName
+import domain.serialization.FileNodeRepository
+
+import java.nio.file.Paths
 
 /**
  * Interpret the [[Effect]] produced by a cluster manager policy.
@@ -66,7 +70,11 @@ object ClusterEffects:
         if cluster.state.leader.contains(cluster.selfMember.address) then
           cluster.manager ! Down(nodeAddress)
 
+      case LogNode(address) =>
+        FileNodeRepository(Paths.get(clusterNodesLogFileName)).addNode(address)
+
       case LeaveCluster =>
+        FileNodeRepository(Paths.get(clusterNodesLogFileName)).clear()
         val cluster = Cluster(context.system)
         timers.cancelAll()
         cluster.manager ! Leave(cluster.selfMember.address)

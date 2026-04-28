@@ -71,6 +71,8 @@ final case class CancelTimer(id: TimerKey) extends Action
  */
 case object StopBehavior extends Action
 
+case class LogNode(address: Address) extends Action
+
 /**
  * Current cluster state view transition.
  */
