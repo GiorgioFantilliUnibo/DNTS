@@ -119,8 +119,10 @@ object ClusterManager:
   ): (ClusterState, List[Effect]) = {
 
     val newView =
-      message match
-        case e: NodeEvent =>
+      (message, state.phase) match
+        case (nodeRemoved: NodeRemoved, Running) =>
+          state.view
+        case (e: NodeEvent, _) =>
           membership.MembershipPolicy.update(state.view, e)
         case _ => state.view
 

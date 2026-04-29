@@ -126,6 +126,12 @@ object RunningPolicy extends DecisionPolicy :
 
   def decide(state: ClusterState, message: ClusterMemberCommand): List[Effect] =
     message match
+      case NodeUp(node) if state.view.nodesUnreachable.contains(node.address) =>
+        List(
+          CancelTimer(UnreachableTimerId(node.address)),
+          NotifyMonitor,
+          NotifyReceptionist(NotifyAddNode(node.address))
+        )
 
       case NodeUp(node) =>
         List(RemoveNodeFromCluster(node.address), RemoveNodeFromMembership(node.address))
@@ -145,13 +151,13 @@ object RunningPolicy extends DecisionPolicy :
         )
 
       case NodeRemoved(node) =>
-        List(RemoveNodeFromMembership(node.address), DownNode(node.address))
+        List(DownNode(node.address))
 
       case StopSimulation =>
         List(LeaveCluster, StopBehavior)
 
       case UnreachableTimeout(address) =>
-        List(RemoveNodeFromMembership(address), DownNode(address))
+        List(DownNode(address))
 
       case _ =>
         Nil
