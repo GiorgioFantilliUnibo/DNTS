@@ -17,8 +17,15 @@ object PersistenceManager:
    */
   extension [T: Serializer](data: T)
     def saveToFile(filePath: String): Try[Unit] = Try {
+      val path = Paths.get(filePath)
+
+      val parent = path.getParent
+      if (parent != null) {
+        Files.createDirectories(parent)
+      }
+
       val bytes = data.serialize
-      Files.write(Paths.get(filePath), bytes)
+      Files.write(path, bytes)
       ()
     }
 
