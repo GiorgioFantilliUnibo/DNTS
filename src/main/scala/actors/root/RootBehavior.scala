@@ -234,9 +234,7 @@ class RootBehavior(
             context.log.info(s"Root (CLIENT): Cluster Ready via $myAddress. Waiting for Seed Config...")
             Behaviors.same
 
-        case RootCommand.ClusterFailed |
-             RootCommand.InvalidCommandInBootstrap |
-             RootCommand.InvalidCommandInJoining =>
+        case RootCommand.ClusterFailed  =>
 
           monitorActor ! MonitorCommand.ConnectionFailed(msg.toString)
 
@@ -265,6 +263,11 @@ class RootBehavior(
             distributeDatasetActor.unsafeUpcast
           )
           gracefullyStopping(children)
+
+        case RootCommand.SimulateCrash =>
+          context.log.warn("Root: CRASH SIMULATION IN PROGRESS. Immediate JVM halt.")
+          Runtime.getRuntime.halt(1)
+          Behaviors.stopped
 
   /**
    * It coordinates the sequential shutdown of all local child actors. The actor enters
