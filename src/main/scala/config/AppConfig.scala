@@ -89,7 +89,7 @@ object ProductionConfig extends AppConfig:
   override final val clusterNodesLogFileName = "cluster_nodes.log"
 
   /** Configuration Actor polling frequency for initial setup. */
-  override final val configurationInterval: FiniteDuration = 1.seconds
+  override final val configurationInterval: FiniteDuration = 500.millis
 
   /** The time interval at which the ModelActor persists a snapshot of the current model to disk. */
   override final val snapshotInterval: FiniteDuration = 3.seconds

@@ -35,7 +35,7 @@ object CliParser:
     s"""
       |Usage:
       |  Master (Seed): run --role ${NodeRole.Seed.toString} [--config <file>] --port <local-port>
-      |  Worker (Client): run --role ${NodeRole.Client.toString} --seedName <seed-ip-port> --port <current-node-port>
+      |  Worker (Client): run --role ${NodeRole.Client.toString} --seedAddress <seed-ip:port> --port <current-node-port>
       |  [--config
       |  <file>]
       |

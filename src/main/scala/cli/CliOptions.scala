@@ -5,10 +5,10 @@ import actors.root.RootActor.NodeRole
 /**
  * Container representing the raw state of parsed command-line arguments.
  *
- * @param role       The operating [[NodeRole]] of the node.
- * @param configFile The optional file path to the simulation configuration.
+ * @param role          The operating [[NodeRole]] of the node.
+ * @param configFile    The optional file path to the simulation configuration.
  * @param seedAddress   The target IP address (required for Client nodes).
- * @param port The target port number (required for Client nodes).
+ * @param port          The target port number (required for Client nodes).
  */
 case class CliOptions(
   role: Option[NodeRole] = None,
@@ -42,4 +42,4 @@ case class CliOptions(
           case (Some(clusterName), Some(address), Some(port)) =>
             Right((NodeRole.Client, Some(clusterName), configFile, Some(address), Some(port)))
           case _ =>
-            Left("Client nodes requires --cluster <ClusterName>, --seedAddress <address> and --port <number>.")
+            Left("Client nodes requires --cluster <ClusterName>, --seedAddress <address:port> and --port <number>.")
