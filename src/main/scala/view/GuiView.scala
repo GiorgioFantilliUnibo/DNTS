@@ -50,7 +50,12 @@ class GuiView(using config: AppConfig) extends ViewBoundary:
     simulationPanel.setControllerCallback(handler)
 
   override def showInitialScreen(snapshot: ViewStateSnapshot, isMaster: Boolean): Unit =
-    setupPanel.render(snapshot, isMaster, () => globalHandler(MonitorCommand.StartSimulation))
+    setupPanel.render(
+      snapshot,
+      isMaster,
+      () => globalHandler(MonitorCommand.StartSimulation),
+      () => globalHandler(MonitorCommand.SimulateCrash)
+    )
 
     SwingUtilities.invokeLater(() =>
       mainLayout.show(mainPanel, Cards.Setup)

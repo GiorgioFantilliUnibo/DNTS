@@ -35,6 +35,7 @@ class SetupInfoPanel extends JPanel:
   private val scrollPane = new JScrollPane(detailsContainer)
 
   private val btnStart = new JButton("START DISTRIBUTED TRAINING")
+  private val btnCrash = new JButton("CRASH NODE")
 
 
   initLayout()
@@ -57,11 +58,12 @@ class SetupInfoPanel extends JPanel:
    * @param snapshot The current [[ViewStateSnapshot]] containing model and config data.
    * @param isMaster True if the local node is the Cluster Seed, enabling the start button.
    * @param onStart  A callback function to be executed when the "Start" button is clicked.
+   * @param onCrash  A callback function to be executed when the "Crash" button is clicked.
    */
-  def render(snapshot: ViewStateSnapshot, isMaster: Boolean, onStart: () => Unit): Unit =
+  def render(snapshot: ViewStateSnapshot, isMaster: Boolean, onStart: () => Unit, onCrash: () => Unit): Unit =
     SwingUtilities.invokeLater(() =>
       updateHeader(snapshot, isMaster)
-      updateStartButton(isMaster, onStart)
+      updateControls(isMaster, onStart, onCrash)
       updateDetails(snapshot.model, snapshot.config)
     )
 
@@ -92,9 +94,17 @@ class SetupInfoPanel extends JPanel:
     btnStart.setFont(Style.SectionFont)
     btnStart.setVisible(false)
 
+    btnCrash.setBackground(java.awt.Color.RED)
+    btnCrash.setForeground(java.awt.Color.WHITE)
+    btnCrash.setToolTipText("Simulates a critical failure and terminates the node")
+
+    val controlsPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 15, 10))
+    controlsPanel.add(btnStart)
+    controlsPanel.add(btnCrash)
+
     add(lblTitle, BorderLayout.NORTH)
     add(centerPanel, BorderLayout.CENTER)
-    add(btnStart, BorderLayout.SOUTH)
+    add(controlsPanel, BorderLayout.SOUTH)
   
   private def updateHeader(snapshot: ViewStateSnapshot, isMaster: Boolean): Unit =
     lblRole.setText(s"Role: ${
@@ -103,8 +113,15 @@ class SetupInfoPanel extends JPanel:
     lblSeed.setText(s"Seed: ${snapshot.clusterSeed.getOrElse("Connecting...")}")
     updatePeerCount(snapshot.activePeers, snapshot.totalPeers)
 
-  private def updateStartButton(isMaster: Boolean, onStart: () => Unit): Unit =
+  private def updateControls(isMaster: Boolean, onStart: () => Unit, onCrash: () => Unit): Unit =
     btnStart.getActionListeners.foreach(btnStart.removeActionListener)
+    btnCrash.getActionListeners.foreach(btnCrash.removeActionListener)
+
+    btnCrash.addActionListener(_ =>
+      if JOptionPane.showConfirmDialog(
+        this, "Simulate Node CRASH?", "Confirm", JOptionPane.YES_NO_OPTION
+      ) == JOptionPane.YES_OPTION then onCrash()
+    )
 
     if isMaster then
       btnStart.setVisible(true)

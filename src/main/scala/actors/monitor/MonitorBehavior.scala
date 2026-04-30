@@ -114,6 +114,12 @@ private[monitor] class MonitorBehavior(
           timers.cancelAll()
           Behaviors.stopped
 
+        case MonitorCommand.SimulateCrash =>
+          context.log.warn("Monitor: Forwarding crash request to RootActor.")
+          boundary.showCrashMessage()
+          rootActor ! RootCommand.SimulateCrash
+          Behaviors.same
+
         case _ => Behaviors.unhandled
 
   /**
