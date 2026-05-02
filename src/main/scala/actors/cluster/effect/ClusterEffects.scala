@@ -2,7 +2,7 @@ package actors.cluster.effect
 
 import actors.cluster.ClusterState
 import actors.cluster.effect.*
-import actors.cluster.ClusterProtocol.ClusterMemberCommand
+import actors.cluster.ClusterProtocol.{ClusterMemberCommand, NodeReachable}
 import actors.cluster.timer.ClusterTimers
 import actors.discovery.DiscoveryProtocol.DiscoveryCommand
 import actors.monitor.MonitorProtocol.MonitorCommand
@@ -53,6 +53,9 @@ object ClusterEffects:
 
       case NotifyReceptionist(event) =>
         receptionistManager ! event
+
+      case NotifyCluster(event) =>
+        context.self ! event
 
       case StartTimer(id, event) =>
         timers.startSingleTimer(id, event, timersDuration.unreachableNode)

@@ -130,7 +130,8 @@ object RunningPolicy extends DecisionPolicy :
         List(
           CancelTimer(UnreachableTimerId(node.address)),
           NotifyMonitor,
-          NotifyReceptionist(NotifyAddNode(node.address))
+          NotifyReceptionist(NotifyAddNode(node.address)),
+          NotifyCluster(NodeReachable(node))
         )
 
       case NodeUp(node) =>

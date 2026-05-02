@@ -1,7 +1,7 @@
 package actors.cluster.effect
 
-import actors.cluster.Phase
-import actors.cluster.ClusterProtocol.InternalEvent
+import actors.cluster.{ClusterNode, Phase}
+import actors.cluster.ClusterProtocol.{InternalEvent, NodeEvent}
 import actors.cluster.timer.TimerKey
 import actors.discovery.DiscoveryProtocol.DiscoveryCommand
 import actors.root.RootProtocol.RootCommand
@@ -72,6 +72,8 @@ final case class CancelTimer(id: TimerKey) extends Action
 case object StopBehavior extends Action
 
 case class LogNode(address: Address) extends Action
+
+case class NotifyCluster(event: NodeEvent) extends Action
 
 /**
  * Current cluster state view transition.
