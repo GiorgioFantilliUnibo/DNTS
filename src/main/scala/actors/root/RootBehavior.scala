@@ -5,9 +5,12 @@ import actors.cluster.timer.ClusterTimers
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import config.{AppConfig, ConfigLoader, FileConfig}
+
 import domain.network.{Feature, Model, ModelBuilder}
 import domain.training.LossFunction
 import domain.training.Strategies.{Optimizers, Regularizers}
+import domain.authentication.NodeRole
+
 import actors.monitor.MonitorActor
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.cluster.{ClusterManager, ClusterProtocol, ClusterState}
@@ -17,7 +20,7 @@ import actors.gossip.GossipProtocol.GossipCommand
 import actors.gossip.configuration.{ConfigurationActor, ConfigurationProtocol}
 import actors.model.ModelActor
 import actors.model.ModelActor.ModelCommand
-import actors.root.RootProtocol.{NodeRole, RootCommand}
+import actors.root.RootProtocol.RootCommand
 import actors.trainer.TrainerActor
 import actors.trainer.TrainerActor.TrainerCommand
 import actors.trainer.TrainerActor.TrainingConfig

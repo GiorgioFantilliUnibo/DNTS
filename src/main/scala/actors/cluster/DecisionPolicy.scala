@@ -4,7 +4,7 @@ import actors.cluster.ClusterProtocol.*
 import actors.cluster.effect.*
 import actors.cluster.timer.{BootstrapTimerId, UnreachableTimerId}
 import actors.discovery.DiscoveryProtocol.{NotifyAddNode, NotifyRemoveNode, RegisterGossipPermit}
-import actors.root.RootProtocol.NodeRole
+import domain.authentication.NodeRole
 import actors.root.RootActor.RootCommand.{ClusterFailed, ClusterReady}
 
 

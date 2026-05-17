@@ -1,5 +1,6 @@
 package actors.root
 
+import domain.authentication.NodeRole
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.Behavior
 import com.typesafe.config.Config

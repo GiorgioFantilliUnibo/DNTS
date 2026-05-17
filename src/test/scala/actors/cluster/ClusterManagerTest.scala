@@ -13,6 +13,7 @@ import actors.monitor.MonitorActor.MonitorCommand
 import actors.root.RootProtocol.*
 import actors.root.RootProtocol.RootCommand.*
 import com.typesafe.config.ConfigFactory
+import domain.authentication.NodeRole
 
 class ClusterManagerTest extends AnyFunSuite with Matchers:
 

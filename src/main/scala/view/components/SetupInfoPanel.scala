@@ -7,8 +7,8 @@ import java.awt.{BorderLayout, Component, Dimension, Font, GridBagConstraints, G
 
 import view.ViewStateSnapshot
 import domain.network.Model
+import domain.authentication.NodeRole
 import actors.trainer.TrainerActor.TrainingConfig
-import actors.root.RootActor.NodeRole
 
 /**
  * Contains constants and static definitions for the [[SetupInfoPanel]].

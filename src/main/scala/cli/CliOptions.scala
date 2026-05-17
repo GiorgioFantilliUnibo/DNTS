@@ -1,6 +1,6 @@
 package cli
 
-import actors.root.RootActor.NodeRole
+import domain.authentication.NodeRole
 
 /**
  * Container representing the raw state of parsed command-line arguments.

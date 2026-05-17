@@ -1,7 +1,7 @@
 package actors.cluster.membership
 
 import actors.cluster.ClusterProtocol.*
-import actors.root.RootProtocol.NodeRole
+import domain.authentication.NodeRole
 
 /**
  * Defines the policy for reacting to cluster membership and reachability events.

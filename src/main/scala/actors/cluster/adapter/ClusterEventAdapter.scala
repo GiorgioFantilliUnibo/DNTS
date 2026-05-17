@@ -21,3 +21,4 @@ object ClusterEventAdapter:
       val member = hm.member(event)
       f(ClusterNodeAdapter.fromMember(member))
     }
+

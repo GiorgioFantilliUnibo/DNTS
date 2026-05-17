@@ -7,7 +7,8 @@ import actors.cluster.*
 import actors.cluster.adapter.ClusterEventAdapter
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.discovery.DiscoveryProtocol.DiscoveryCommand
-import actors.root.RootProtocol.{NodeRole, RootCommand}
+import actors.root.RootProtocol.RootCommand
+import domain.authentication.NodeRole
 import akka.actor.typed.*
 import akka.actor.typed.scaladsl.*
 import akka.cluster.ClusterEvent

@@ -10,6 +10,7 @@ import actors.root.RootProtocol.*
 import actors.root.RootProtocol.RootCommand.*
 import actors.cluster.ClusterProtocol.*
 import actors.cluster.membership.ClusterMembership
+import domain.authentication.NodeRole
 
 class DecisionPolicyTest extends AnyFunSuite with Matchers:
 

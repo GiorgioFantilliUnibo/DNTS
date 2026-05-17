@@ -44,6 +44,9 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
     override def modelSnapshotPath(port: Int): String         = s"test_model_snapshot_$port.bin"
     override def trainingSnapshotPath(port: Int): String      = s"test_training_snapshot_$port.bin"
 
+    override val clusterNodesLogFileName: String = ProductionConfig.clusterNodesLogFileName
+    override val configurationInterval: FiniteDuration = ProductionConfig.configurationInterval
+
   given AppConfig = TestConfig
 
   private val dummyModel = ModelBuilder.fromInputs(Feature.X)

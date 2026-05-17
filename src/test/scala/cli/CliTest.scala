@@ -3,7 +3,7 @@ package cli
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import actors.root.RootActor.NodeRole
+import domain.authentication.NodeRole
 
 class CliTest extends AnyFunSuite with Matchers:
   

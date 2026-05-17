@@ -1,7 +1,7 @@
 package actors.cluster
 
 import actors.cluster.membership.ClusterMembership
-import actors.root.RootProtocol.NodeRole
+import domain.authentication.NodeRole
 import akka.actor.Address
 
 sealed trait Phase

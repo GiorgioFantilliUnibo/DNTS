@@ -1,6 +1,6 @@
 package cli
 
-import actors.root.RootProtocol.NodeRole
+import domain.authentication.NodeRole
 import scala.annotation.tailrec
 
 /**

@@ -1,7 +1,7 @@
 package config
 
-import actors.root.RootProtocol.NodeRole
-import actors.root.RootProtocol.NodeRole.{Client, Seed}
+import domain.authentication.NodeRole
+import domain.authentication.NodeRole.{Client, Seed}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config
 
