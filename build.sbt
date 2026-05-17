@@ -24,6 +24,10 @@ lazy val root = (project in file("."))
       )
     },
 
+    libraryDependencies ++= Seq(
+      "com.auth0" % "java-jwt" % "4.5.2"
+    ),
+
     assembly / assemblyJarName := "dnts.jar",
 
     assembly / assemblyMergeStrategy := {
