@@ -3,35 +3,14 @@ package app
 import akka.actor.typed.ActorSystem
 import config.{AkkaConfig, AppConfig, ProductionConfig}
 import actors.root.RootActor
-import akka.actor.Address
 import cli.{CliParser, ParseResult}
 import config.ProductionConfig.clusterNodesLogFileName
 import domain.serialization.FileNodeRepository
 
 import java.nio.file.Paths
 
-/**
- * Application Entry Point.
- *
- * Responsible for bootstrapping the Akka Cluster node. It acts as the orchestration layer
- * between Command Line Interface parsing, configuration loading, and the Akka Actor System startup.
- */
 object Main:
 
-  /**
-   * The main execution method.
-   *
-   * It processes the raw command-line arguments to determine the node's role and configuration.
-   * Based on the parsing result, it either starts the [[ActorSystem]] or terminates the process.
-   *
-   * <h3>Exit Codes:</h3>
-   * <ul>
-   * <li>**0**: Successful execution (or Help message displayed).</li>
-   * <li>**1**: Configuration error or Invalid arguments.</li>
-   * </ul>
-   *
-   * @param args The variable argument list passed from the command line.
-   */
   @main def run(args: String*): Unit =
     val parseResult = CliParser.parse(args.toList)
 
@@ -51,8 +30,12 @@ object Main:
             System.err.println(s"Configuration Error: $errorMsg")
             sys.exit(1)
 
-          case Right((role, clusterName, configPath, clusterIp, clusterPort)) =>
+          case Right((role, clusterName, configPath, clusterIp, clusterPort, authOptions)) =>
             println(s">>> Starting Node with Role: $role")
+
+            authOptions.foreach { auth =>
+              println(s">>> Authentication requested: Action=${auth.action}, Username=${auth.username}")
+            }
 
             given appConfig: AppConfig = ProductionConfig
 

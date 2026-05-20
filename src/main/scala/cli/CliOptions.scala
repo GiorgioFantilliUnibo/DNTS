@@ -2,44 +2,44 @@ package cli
 
 import domain.authentication.NodeRole
 
-/**
- * Container representing the raw state of parsed command-line arguments.
- *
- * @param role       The operating [[NodeRole]] of the node.
- * @param configFile The optional file path to the simulation configuration.
- * @param seedAddress   The target IP address (required for Client nodes).
- * @param port The target port number (required for Client nodes).
- */
-case class CliOptions(
-  role: Option[NodeRole] = None,
-  cluster: Option[String] = None,
-  configFile: Option[String] = None,
-  seedAddress: Option[String] = None,
-  port: Option[Int] = None
-):
+case class AuthOptions(
+                        action: String,
+                        username: String,
+                        password: String,
+                        fullName: Option[String] = None
+                      )
 
-  /**
-   * Performs semantic validation of the accumulated options.
-   * It ensures that the specific combination of flags is valid for the selected role.
-   *
-   * @return `Right` containing the validated tuple (Role, ConfigPath, IP, Port) if successful,
-   * or `Left` with an error message if the configuration is invalid.
-   */
-  def validate: Either[String, (NodeRole, Option[String], Option[String], Option[String], Option[Int])] =
+case class CliOptions(
+                       role: Option[NodeRole] = None,
+                       cluster: Option[String] = None,
+                       configFile: Option[String] = None,
+                       seedAddress: Option[String] = None,
+                       port: Option[Int] = None,
+                       action: Option[String] = None,
+                       username: Option[String] = None,
+                       password: Option[String] = None,
+                       fullName: Option[String] = None
+                     ):
+
+  def validate: Either[String, (NodeRole, Option[String], Option[String], Option[String], Option[Int], Option[AuthOptions])] =
     role match
       case None =>
         Left("Missing required parameter: --role <seed|client>")
 
       case Some(NodeRole.Seed) =>
         (cluster, configFile, port) match
-          case (Some(name), Some(config), Some(port)) =>
-            Right((NodeRole.Seed, Some(name), Some(config), None, Some(port)))
+          case (Some(name), Some(config), Some(p)) =>
+            Right((NodeRole.Seed, Some(name), Some(config), None, Some(p), None))
           case _ =>
             Left("Seed node requires --cluster <ClusterName>, --config <path> and --port <int> parameters.")
 
       case Some(NodeRole.Client) =>
-        (cluster, seedAddress, port) match
-          case (Some(clusterName), Some(address), Some(port)) =>
-            Right((NodeRole.Client, Some(clusterName), configFile, Some(address), Some(port)))
+        (cluster, seedAddress, port, action, username, password) match
+          case (Some(clusterName), Some(address), Some(p), Some(act), Some(usr), Some(pwd)) if act == "login" || act == "register" =>
+            if act == "register" && fullName.isEmpty then
+              Left("Client registration requires --fullname <string> parameter.")
+            else
+              val authOpts = AuthOptions(act, usr, pwd, fullName)
+              Right((NodeRole.Client, Some(clusterName), None, Some(address), Some(p), Some(authOpts)))
           case _ =>
-            Left("Client nodes requires --cluster <ClusterName>, --seedAddress <address> and --port <number>.")
+            Left("Client node requires --cluster, --seedAddress, --port, --action <login|register>, --username, and --password.")
