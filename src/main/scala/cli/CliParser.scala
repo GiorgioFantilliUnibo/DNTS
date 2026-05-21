@@ -1,6 +1,7 @@
 package cli
 
-import domain.authentication.NodeRole
+import domain.authentication.{AuthAction, NodeRole}
+
 import scala.annotation.tailrec
 
 sealed trait ParseResult
@@ -27,7 +28,7 @@ object CliParser:
        |  --action <login|register>           Authentication action (Client only).
        |  --username <string>                 Username for authentication.
        |  --password <string>                 Password for authentication.
-       |  --fullname <string>                 Full name (Required for registration).
+       |  --fullName <string>                 Full name (Required for registration).
        |""".stripMargin
 
   def getHelpText: String = HelpText
@@ -63,9 +64,10 @@ object CliParser:
           case Some(p) => parseRec(tail, current.copy(port = Some(p)))
           case None    => ParseResult.Failure(s"Invalid port number: $value")
 
-      // Nuovi flag per l'autenticazione
       case "--action" :: value :: tail =>
-        parseRec(tail, current.copy(action = Some(value.toLowerCase)))
+        AuthAction.fromString(value) match
+          case Some(act) => parseRec(tail, current.copy(action = Some(act)))
+          case None      => ParseResult.Failure(s"Invalid action: '$value'. Must be one of: ${AuthAction.validOptions}.")
 
       case "--username" :: value :: tail =>
         parseRec(tail, current.copy(username = Some(value)))
@@ -73,7 +75,7 @@ object CliParser:
       case "--password" :: value :: tail =>
         parseRec(tail, current.copy(password = Some(value)))
 
-      case "--fullname" :: value :: tail =>
+      case "--fullName" :: value :: tail =>
         parseRec(tail, current.copy(fullName = Some(value)))
 
       case unknown :: _ =>

@@ -1,16 +1,16 @@
 package actors.root
 
+import actors.authentication.{AuthActor, AuthProtocol}
+import actors.authentication.AuthProtocol.Register
 import actors.cluster.ClusterProtocol.{ClusterMemberCommand, RegisterMonitor}
 import actors.cluster.timer.ClusterTimers
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import config.{AppConfig, ConfigLoader, FileConfig}
-
 import domain.network.{Feature, Model, ModelBuilder}
 import domain.training.LossFunction
 import domain.training.Strategies.{Optimizers, Regularizers}
-import domain.authentication.NodeRole
-
+import domain.authentication.{AuthAction, NodeRole, User}
 import actors.monitor.MonitorActor
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.cluster.{ClusterManager, ClusterProtocol, ClusterState}
@@ -30,14 +30,17 @@ import actors.gossip.consensus.{ConsensusActor, ConsensusProtocol}
 import actors.gossip.dataset_distribution.DatasetDistributionActor
 import actors.gossip.dataset_distribution.DatasetDistributionProtocol
 import actors.gossip.dataset_distribution.DatasetDistributionProtocol.DatasetDistributionCommand
+import actors.root.RootProtocol.RootCommand.{WrappedAuthListing, WrappedRegisterReply}
+import akka.actor.typed.receptionist.Receptionist
 import domain.data.LabeledPoint2D
 import com.typesafe.config.Config
+import domain.authentication.NodeRole.Seed
 import domain.data.dataset.{DataModelFactory, DatasetGenerator, shuffle}
 import domain.data.util.Space
 import view.*
 import domain.serialization.PersistenceManager
-import java.util.UUID
 
+import java.util.UUID
 import domain.serialization.ModelSerializers.given
 import domain.serialization.NetworkSerializers.given
 import domain.serialization.TrainingSerializers.given
@@ -54,11 +57,15 @@ import domain.network.Activations.given
  * @param appConfig   Implicit global application configuration.
  */
 class RootBehavior(
-  context: ActorContext[RootCommand],
-  role: NodeRole,
-  configPath: Option[String],
-  akkaConfig: Config
-)(using appConfig: AppConfig):
+                    context: ActorContext[RootCommand],
+                    role: NodeRole,
+                    configPath: Option[String],
+                    akkaConfig: Config,
+                    action: AuthAction,
+                    username: String,
+                    password: String,
+                    fullName: Option[String] = None
+                  )(using appConfig: AppConfig):
 
   private case class SeedPayload(
     model: Model,
@@ -67,12 +74,66 @@ class RootBehavior(
     fileConfig: FileConfig
   )
 
+  def start(): Behavior[RootCommand] =
+    role match
+      case NodeRole.Seed =>
+        context.log.info("Seed node: AuthActor initialization")
+
+        val authActorRef = context.spawn(AuthActor(), "AuthActor")
+
+        context.system.receptionist ! Receptionist.Register(AuthActor.AuthServiceKey, authActorRef)
+
+        ready(remoteAuthActor = authActorRef)
+
+      case NodeRole.Client =>
+        context.log.info("Client node: subscription to the Receptionist to find the AuthActor of the Seed")
+
+        val authListingAdapter = context.messageAdapter[Receptionist.Listing](WrappedAuthListing.apply)
+
+        context.system.receptionist ! Receptionist.Subscribe(AuthActor.AuthServiceKey, authListingAdapter)
+
+        waitingForAuthActor(action, username, password, fullName)
+
+  private def waitingForAuthActor(
+                                   action: AuthAction,
+                                   username: String,
+                                   password: String,
+                                   fullName: Option[String] = None
+                                 ): Behavior[RootCommand] =
+    Behaviors.receiveMessage:
+      case WrappedAuthListing(AuthActor.AuthServiceKey.Listing(listings)) =>
+        listings.headOption match
+          case Some(remoteAuthActorRef) =>
+            if action == AuthAction.Register then
+              context.log.info(s"Client node: Registration successful with remote AuthActor")
+
+              val user = User(
+                username = username,
+                fullName = fullName.getOrElse(""),
+                role = role,
+                password = password
+              )
+
+              val registerAdapter = context.messageAdapter[AuthProtocol.RegisterReply](WrappedRegisterReply.apply)
+              remoteAuthActorRef ! AuthProtocol.Register(user, registerAdapter)
+
+              Behaviors.same
+            else
+              ready(remoteAuthActorRef)
+
+          case None =>
+            context.log.debug("Client node: Received empty listing update, waiting for Seed")
+            Behaviors.same
+
+      case _ =>
+        Behaviors.same
 
   /**
    * Bootstrap logic: executed immediately upon creation.
    */
-  def start(): Behavior[RootCommand] =
+  def ready(remoteAuthActor: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
     context.log.info(s"Root: Bootstrapping system with role $role...")
+
 
     val discoveryActor = context.spawn(DiscoveryActor(GossipPeerState.empty), "discoveryActor")
 

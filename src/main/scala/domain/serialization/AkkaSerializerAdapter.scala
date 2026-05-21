@@ -24,6 +24,10 @@ import actors.gossip.consensus.ConsensusProtocol.*
 import actors.gossip.configuration.ConfigurationProtocol
 import actors.gossip.dataset_distribution.DatasetDistributionActor.HandleDistributeDataset
 
+// +++ 1. IMPORT NECESSARI PER L'AUTENTICAZIONE +++
+import actors.authentication.AuthProtocol.{AuthCommand, RegisterReply}
+import domain.serialization.AuthSerializers.given
+
 /**
  * Registry and configuration container for the [[AkkaSerializationAdapter]].
  * Defines the unique Manifest codes used to identify types.
@@ -39,16 +43,18 @@ object AkkaSerializerAdapter:
   final val ManifestRequestInitialConfig = "RIC"
   final val ManifestRequestModelForConsensus = "RMF"
   final val ManifestReplyModelForConsensus = "RPLY"
+  final val ManifestAuthCommand = "AC"
+  final val ManifestRegisterReply = "RR"
 
   /**
    * Internal mapping connecting a specific Class type to its Manifest string
    * and its corresponding [[domain.serialization.Serializer]].
    */
   private case class TypeBinding[T](
-    manifest: String,
-    clss: Class[T],
-    serializer: DomainSerializer[T]
-  )
+                                     manifest: String,
+                                     clss: Class[T],
+                                     serializer: DomainSerializer[T]
+                                   )
 
 
 /**
@@ -91,14 +97,24 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
       ManifestReplyModelForConsensus,
       classOf[ConsensusModelReply],
       GossipSerializers.consensusModelReplySerializer(using summon[DomainSerializer[Model]])
+    ),
+    TypeBinding(
+      ManifestAuthCommand,
+      classOf[AuthCommand], // Usiamo la classe base, intercetterà Register, GetUser ecc.
+      summon[DomainSerializer[AuthCommand]]
+    ),
+    TypeBinding(
+      ManifestRegisterReply,
+      classOf[RegisterReply], // Usiamo l'enum base, intercetterà Registered, AlreadyExists ecc.
+      summon[DomainSerializer[RegisterReply]]
     )
   )
 
   private val manifestToBinding: Map[String, TypeBinding[?]] =
     registry.map(b => b.manifest -> b).toMap
 
-  private val classToBinding: Map[Class[?], TypeBinding[?]] =
-    registry.map(b => b.clss -> b).toMap
+  private def findBinding(clazz: Class[?]): Option[TypeBinding[?]] =
+    registry.find(_.clss.isAssignableFrom(clazz))
 
 
   /**
@@ -107,7 +123,7 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
    * @throws IllegalArgumentException If the object type is not registered in this adapter.
    */
   override def manifest(o: AnyRef): String =
-    classToBinding.get(o.getClass) match
+    findBinding(o.getClass) match
       case Some(binding) => binding.manifest
       case None =>
         throw new IllegalArgumentException(s"Type not supported by AkkaSerializerAdapter: ${o.getClass.getName}")
@@ -121,7 +137,7 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
    * @throws IllegalArgumentException If no serializer is found for the object's type.
    */
   override def toBinary(o: AnyRef): Array[Byte] =
-    classToBinding.get(o.getClass) match
+    findBinding(o.getClass) match
       case Some(binding) =>
         val s = binding.asInstanceOf[TypeBinding[AnyRef]].serializer
         s.serialize(o)

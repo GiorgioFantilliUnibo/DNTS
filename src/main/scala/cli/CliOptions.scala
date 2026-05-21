@@ -1,9 +1,10 @@
 package cli
 
-import domain.authentication.NodeRole
+import domain.authentication.AuthAction.Register
+import domain.authentication.{AuthAction, NodeRole}
 
 case class AuthOptions(
-                        action: String,
+                        action: Option[AuthAction],
                         username: String,
                         password: String,
                         fullName: Option[String] = None
@@ -15,7 +16,7 @@ case class CliOptions(
                        configFile: Option[String] = None,
                        seedAddress: Option[String] = None,
                        port: Option[Int] = None,
-                       action: Option[String] = None,
+                       action: Option[AuthAction] = None,
                        username: Option[String] = None,
                        password: Option[String] = None,
                        fullName: Option[String] = None
@@ -35,11 +36,11 @@ case class CliOptions(
 
       case Some(NodeRole.Client) =>
         (cluster, seedAddress, port, action, username, password) match
-          case (Some(clusterName), Some(address), Some(p), Some(act), Some(usr), Some(pwd)) if act == "login" || act == "register" =>
-            if act == "register" && fullName.isEmpty then
+          case (Some(clusterName), Some(address), Some(p), Some(act), Some(usr), Some(pwd)) if act == AuthAction.Login || act == AuthAction.Register =>
+            if act == AuthAction.Register && fullName.isEmpty then
               Left("Client registration requires --fullname <string> parameter.")
             else
-              val authOpts = AuthOptions(act, usr, pwd, fullName)
+              val authOpts = AuthOptions(Some(act), usr, pwd, fullName)
               Right((NodeRole.Client, Some(clusterName), None, Some(address), Some(p), Some(authOpts)))
           case _ =>
             Left("Client node requires --cluster, --seedAddress, --port, --action <login|register>, --username, and --password.")

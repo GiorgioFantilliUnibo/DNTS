@@ -1,7 +1,7 @@
 package actors.root
 
-import domain.authentication.NodeRole
-import akka.actor.typed.scaladsl.Behaviors
+import domain.authentication.{AuthAction, NodeRole}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.Behavior
 import com.typesafe.config.Config
 import config.AppConfig
@@ -25,7 +25,19 @@ object RootActor:
   def apply(
     role: NodeRole,
     configPath: Option[String],
-    akkaConfig: Config
+    akkaConfig: Config,
+    action: AuthAction,
+    username: String,
+    password: String,
+    fullName: Option[String] = None
   )(using appConfig: AppConfig): Behavior[RootCommand] =
     Behaviors.setup: context =>
-      new RootBehavior(context, role, configPath, akkaConfig).start()
+      new RootBehavior(
+        context,
+        role,
+        configPath,
+        akkaConfig,
+        action,
+        username,
+        password,
+        fullName).start()

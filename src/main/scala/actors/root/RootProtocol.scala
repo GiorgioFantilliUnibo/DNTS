@@ -2,7 +2,9 @@ package actors.root
 
 import domain.network.Model
 import actors.trainer.TrainerActor.TrainingConfig
+import actors.authentication.AuthProtocol.RegisterReply
 import domain.data.LabeledPoint2D
+import akka.actor.typed.receptionist.Receptionist.Listing
 
 /**
  * Defines the public API for the Root component.
@@ -32,6 +34,10 @@ object RootProtocol:
       model: Model,
       trainConfig: TrainingConfig
     ) extends RootCommand
+
+    final case class WrappedAuthListing(listing: Listing) extends RootCommand
+
+    final case class WrappedRegisterReply(reply: RegisterReply) extends RootCommand
 
     /**
      * Triggered in case the cluster connection has been confirmed

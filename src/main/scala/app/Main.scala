@@ -5,6 +5,7 @@ import config.{AkkaConfig, AppConfig, ProductionConfig}
 import actors.root.RootActor
 import cli.{CliParser, ParseResult}
 import config.ProductionConfig.clusterNodesLogFileName
+import domain.authentication.AuthAction.Login
 import domain.serialization.FileNodeRepository
 
 import java.nio.file.Paths
@@ -49,7 +50,11 @@ object Main:
             val rootBehavior = RootActor(
               role = role,
               configPath = configPath,
-              akkaConfig
+              akkaConfig,
+              options.action.getOrElse(Login),
+              options.username.getOrElse("default"),
+              options.password.getOrElse("secret"),
+              options.fullName
             )
 
             ActorSystem(rootBehavior, clusterName.get, akkaConfig)
