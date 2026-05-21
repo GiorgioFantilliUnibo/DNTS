@@ -117,13 +117,13 @@ class RootBehavior(
               val registerAdapter = context.messageAdapter[AuthProtocol.RegisterReply](WrappedRegisterReply.apply)
               remoteAuthActorRef ! AuthProtocol.Register(user, registerAdapter)
 
-              Behaviors.same
+              Behaviors.stopped
             else
               ready(remoteAuthActorRef)
 
           case None =>
             context.log.debug("Client node: Received empty listing update, waiting for Seed")
-            Behaviors.same
+            waitingForAuthActor(action,username,password,fullName)
 
       case _ =>
         Behaviors.same
