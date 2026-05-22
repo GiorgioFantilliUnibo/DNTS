@@ -16,7 +16,6 @@ lazy val root = (project in file("."))
       Seq(
         "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
         "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
-        "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
         "ch.qos.logback" % "logback-classic" % "1.4.14",
         "org.jfree" % "jfreechart" % "1.5.3",
         "org.scalatest" %% "scalatest" % "3.2.18" % Test,
@@ -26,16 +25,6 @@ lazy val root = (project in file("."))
 
     libraryDependencies ++= Seq(
       "com.auth0" % "java-jwt" % "4.5.2"
-    ),
-
-    dependencyOverrides ++= Seq(
-      "com.fasterxml.jackson.core" % "jackson-core" % "2.13.5",
-      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.13.5",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.5",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % "2.13.5",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.13.5",
-      "com.fasterxml.jackson.module" %% "jackson-module-parameter-names" % "2.13.5",
-      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.5"
     ),
 
     assembly / assemblyJarName := "dnts.jar",
