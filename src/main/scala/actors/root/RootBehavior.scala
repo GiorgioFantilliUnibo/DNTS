@@ -107,7 +107,7 @@ class RootBehavior(
         listings.headOption match
           case Some(remoteAuthActorRef) =>
             if action == AuthAction.Register then
-              context.log.info(s"Client node: Registration on AuthActor was successful")
+              context.log.info(s"Client node: Received reference to remote AuthActor -> $remoteAuthActorRef")
               val user = User(
                 username = username,
                 fullName = fullName.getOrElse(""),
@@ -116,7 +116,7 @@ class RootBehavior(
               )
               val registerAdapter = context.messageAdapter[AuthProtocol.RegisterReply](WrappedRegisterReply.apply)
               remoteAuthActorRef ! AuthProtocol.Register(user, registerAdapter)
-              Behaviors.stopped
+              waitingForRegistration(remoteAuthActorRef)
 
             else if action == AuthAction.Login then
               context.log.info(s"Client node: Initiating token authentication for the user: '$username'...")
@@ -129,6 +129,40 @@ class RootBehavior(
           case _ =>
             context.log.debug("Client node: Received empty listing update from Receptionist, waiting for seed discovery")
             Behaviors.same
+
+  private def waitingForRegistration(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
+    Behaviors.receiveMessage:
+      case WrappedRegisterReply(AuthProtocol.RegisterReply.Registered) =>
+        context.log.info("Client node: Registration on AuthActor was successful")
+
+        GuiView.showInfoDialog(
+          "Registration Successful",
+          "Registration completed successfully! You can now log in to the system."
+        )
+        Behaviors.stopped
+
+      case WrappedRegisterReply(AuthProtocol.RegisterReply.AlreadyExists(reason)) =>
+        context.log.error(s"Client node: Registration failed (User already exists): $reason")
+
+        GuiView.showWarningDialog(
+          "Registration Error",
+          s"Warning: Registration failed.\nThe user already exists:\n$reason"
+        )
+
+        Behaviors.stopped
+
+      case WrappedRegisterReply(AuthProtocol.RegisterReply.RegisterError(reason)) =>
+        context.log.error(s"Client node: Registration failed due to an internal error: $reason")
+
+        GuiView.showErrorDialog(
+          "System Error",
+          s"Critical error during registration:\n$reason"
+        )
+
+        Behaviors.stopped
+
+      case _ =>
+        Behaviors.same
 
   private def waitingForAuthentication(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
     Behaviors.receiveMessage:

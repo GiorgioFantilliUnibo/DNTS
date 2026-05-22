@@ -1,9 +1,5 @@
 package domain.authentication
 
-import domain.authentication.User
-import domain.authentication.Credentials
-import domain.authentication.Token
-
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.duration.FiniteDuration
 

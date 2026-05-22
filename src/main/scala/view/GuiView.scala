@@ -21,6 +21,21 @@ object GuiView:
     final val Setup = "SETUP"
     final val Simulation = "SIMULATION"
 
+  def showInfoDialog(title: String, message: String): Unit =
+    SwingUtilities.invokeLater(() => {
+      JOptionPane.showMessageDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE)
+    })
+
+  def showWarningDialog(title: String, message: String): Unit =
+    SwingUtilities.invokeLater(() => {
+      JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE)
+    })
+
+  def showErrorDialog(title: String, message: String): Unit =
+    SwingUtilities.invokeLater(() => {
+      JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE)
+    })
+
 
 /**
  * Concrete implementation of the [[ViewBoundary]] trait using the Java Swing library.
