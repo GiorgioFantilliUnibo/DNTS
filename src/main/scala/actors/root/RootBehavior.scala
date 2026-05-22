@@ -10,7 +10,7 @@ import config.{AppConfig, ConfigLoader, FileConfig}
 import domain.network.{Feature, Model, ModelBuilder}
 import domain.training.LossFunction
 import domain.training.Strategies.{Optimizers, Regularizers}
-import domain.authentication.{AuthAction, NodeRole, User}
+import domain.authentication.{AuthAction, Credentials, NodeRole, User}
 import actors.monitor.MonitorActor
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.cluster.{ClusterManager, ClusterProtocol, ClusterState}
@@ -30,7 +30,7 @@ import actors.gossip.consensus.{ConsensusActor, ConsensusProtocol}
 import actors.gossip.dataset_distribution.DatasetDistributionActor
 import actors.gossip.dataset_distribution.DatasetDistributionProtocol
 import actors.gossip.dataset_distribution.DatasetDistributionProtocol.DatasetDistributionCommand
-import actors.root.RootProtocol.RootCommand.{WrappedAuthListing, WrappedRegisterReply}
+import actors.root.RootProtocol.RootCommand.{WrappedAuthListing, WrappedAuthenticateReply, WrappedRegisterReply, WrappedValidateTokenReply}
 import akka.actor.typed.receptionist.Receptionist
 import domain.data.LabeledPoint2D
 import com.typesafe.config.Config
@@ -47,6 +47,8 @@ import domain.serialization.TrainingSerializers.given
 import domain.serialization.DatasetSerializers.given
 import domain.serialization.LinearAlgebraSerializers.given
 import domain.network.Activations.given
+
+import scala.concurrent.duration.DurationInt
 
 /**
  * Encapsulates the behavior logic for the RootActor.
@@ -83,7 +85,7 @@ class RootBehavior(
 
         context.system.receptionist ! Receptionist.Register(AuthActor.AuthServiceKey, authActorRef)
 
-        ready(remoteAuthActor = authActorRef)
+        ready()
 
       case NodeRole.Client =>
         context.log.info("Client node: subscription to the Receptionist to find the AuthActor of the Seed")
@@ -105,33 +107,64 @@ class RootBehavior(
         listings.headOption match
           case Some(remoteAuthActorRef) =>
             if action == AuthAction.Register then
-              context.log.info(s"Client node: Registration successful with remote AuthActor")
-
+              context.log.info(s"Client node: Registration on AuthActor was successful")
               val user = User(
                 username = username,
                 fullName = fullName.getOrElse(""),
                 role = role,
                 password = password
               )
-
               val registerAdapter = context.messageAdapter[AuthProtocol.RegisterReply](WrappedRegisterReply.apply)
               remoteAuthActorRef ! AuthProtocol.Register(user, registerAdapter)
-
               Behaviors.stopped
-            else
-              ready(remoteAuthActorRef)
 
-          case None =>
-            context.log.debug("Client node: Received empty listing update, waiting for Seed")
-            waitingForAuthActor(action,username,password,fullName)
+            else if action == AuthAction.Login then
+              context.log.info(s"Client node: Initiating token authentication for the user: '$username'...")
+              val credentials = Credentials(id = username, password = password)
+              val loginAdapter = context.messageAdapter[AuthProtocol.AuthenticateReply](WrappedAuthenticateReply.apply)
+              remoteAuthActorRef ! AuthProtocol.Authenticate(credentials, 2.hours, loginAdapter)
+              waitingForAuthentication(remoteAuthActorRef)
+            else
+              ready()
+          case _ =>
+            context.log.debug("Client node: Received empty listing update from Receptionist, waiting for seed discovery")
+            Behaviors.same
+
+  private def waitingForAuthentication(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
+    Behaviors.receiveMessage:
+      case WrappedAuthenticateReply(AuthProtocol.AuthenticateReply.Authenticated(token)) =>
+        context.log.info("Client node: Authentication successful. Token extraction and coverage check on the Seed")
+
+        val validateAdapter = context.messageAdapter[AuthProtocol.ValidateTokenReply](WrappedValidateTokenReply.apply)
+
+        remoteAuthActorRef ! AuthProtocol.ValidateToken(token, validateAdapter)
+
+        waitingForTokenValidation()
+
+      case WrappedAuthenticateReply(AuthProtocol.AuthenticateReply.AuthFailed(reason)) =>
+        context.log.error(s"Client node: Authentication failed! Error: $reason")
+        Behaviors.stopped
 
       case _ =>
         Behaviors.same
 
+  private def waitingForTokenValidation(): Behavior[RootCommand] =
+    Behaviors.receiveMessage:
+      case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenValid(token)) =>
+        context.log.info(s"Client node: Token coverage successfully verified by Seed for user: '${token.user.username}'.")
+        context.log.info("Client node: The token is valid and active. Final system bootstrap is starting")
+        ready()
+
+      case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenInvalid(reason)) =>
+        context.log.error(s"Client node: Token coverage verification failed! Reason for rejection: $reason")
+        Behaviors.stopped
+
+      case _ =>
+        Behaviors.same
   /**
    * Bootstrap logic: executed immediately upon creation.
    */
-  def ready(remoteAuthActor: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
+  def ready(): Behavior[RootCommand] =
     context.log.info(s"Root: Bootstrapping system with role $role...")
 
 

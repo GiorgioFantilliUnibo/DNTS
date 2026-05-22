@@ -23,9 +23,7 @@ import actors.gossip.GossipActor.GossipCommand.HandleRemoteModel
 import actors.gossip.consensus.ConsensusProtocol.*
 import actors.gossip.configuration.ConfigurationProtocol
 import actors.gossip.dataset_distribution.DatasetDistributionActor.HandleDistributeDataset
-
-// +++ 1. IMPORT NECESSARI PER L'AUTENTICAZIONE +++
-import actors.authentication.AuthProtocol.{AuthCommand, RegisterReply}
+import actors.authentication.AuthProtocol.{AuthCommand, RegisterReply, AuthenticateReply, ValidateTokenReply}
 import domain.serialization.AuthSerializers.given
 
 /**
@@ -45,6 +43,8 @@ object AkkaSerializerAdapter:
   final val ManifestReplyModelForConsensus = "RPLY"
   final val ManifestAuthCommand = "AC"
   final val ManifestRegisterReply = "RR"
+  final val ManifestAuthenticateReply = "AR"
+  final val ManifestValidateTokenReply = "VTR"
 
   /**
    * Internal mapping connecting a specific Class type to its Manifest string
@@ -100,13 +100,23 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
     ),
     TypeBinding(
       ManifestAuthCommand,
-      classOf[AuthCommand], // Usiamo la classe base, intercetterà Register, GetUser ecc.
+      classOf[AuthCommand],
       summon[DomainSerializer[AuthCommand]]
     ),
     TypeBinding(
       ManifestRegisterReply,
-      classOf[RegisterReply], // Usiamo l'enum base, intercetterà Registered, AlreadyExists ecc.
+      classOf[RegisterReply],
       summon[DomainSerializer[RegisterReply]]
+    ),
+    TypeBinding(
+      ManifestAuthenticateReply,
+      classOf[AuthenticateReply],
+      summon[DomainSerializer[AuthenticateReply]]
+    ),
+    TypeBinding(
+      ManifestValidateTokenReply,
+      classOf[ValidateTokenReply],
+      summon[DomainSerializer[ValidateTokenReply]]
     )
   )
 

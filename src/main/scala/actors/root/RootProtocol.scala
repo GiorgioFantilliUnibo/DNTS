@@ -2,7 +2,7 @@ package actors.root
 
 import domain.network.Model
 import actors.trainer.TrainerActor.TrainingConfig
-import actors.authentication.AuthProtocol.RegisterReply
+import actors.authentication.AuthProtocol.{RegisterReply, AuthenticateReply, ValidateTokenReply}
 import domain.data.LabeledPoint2D
 import akka.actor.typed.receptionist.Receptionist.Listing
 
@@ -38,6 +38,10 @@ object RootProtocol:
     final case class WrappedAuthListing(listing: Listing) extends RootCommand
 
     final case class WrappedRegisterReply(reply: RegisterReply) extends RootCommand
+
+    final case class WrappedAuthenticateReply(reply: AuthenticateReply) extends RootCommand
+
+    final case class WrappedValidateTokenReply(reply: ValidateTokenReply) extends RootCommand
 
     /**
      * Triggered in case the cluster connection has been confirmed
