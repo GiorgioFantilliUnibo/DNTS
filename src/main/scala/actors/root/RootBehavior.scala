@@ -177,6 +177,10 @@ class RootBehavior(
 
       case WrappedAuthenticateReply(AuthProtocol.AuthenticateReply.AuthFailed(reason)) =>
         context.log.error(s"Client node: Authentication failed! Error: $reason")
+        GuiView.showErrorDialog(
+          "Authentication Failed",
+          s"Access denied.\nReason: $reason"
+        )
         Behaviors.stopped
 
       case _ =>
@@ -187,10 +191,18 @@ class RootBehavior(
       case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenValid(token)) =>
         context.log.info(s"Client node: Token coverage successfully verified by Seed for user: '${token.user.username}'.")
         context.log.info("Client node: The token is valid and active. Final system bootstrap is starting")
+        GuiView.showInfoDialog(
+          "Authentication Successful",
+          "Token validated. System is bootstrapping now..."
+        )
         ready()
 
       case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenInvalid(reason)) =>
         context.log.error(s"Client node: Token coverage verification failed! Reason for rejection: $reason")
+        GuiView.showErrorDialog(
+          "Token Validation Failed",
+          s"The authentication token is invalid or expired.\nReason: $reason"
+        )
         Behaviors.stopped
 
       case _ =>
@@ -396,6 +408,8 @@ class RootBehavior(
             distributeDatasetActor.unsafeUpcast
           )
           gracefullyStopping(children)
+        case _ =>
+          Behaviors.unhandled
 
   /**
    * It coordinates the sequential shutdown of all local child actors. The actor enters
