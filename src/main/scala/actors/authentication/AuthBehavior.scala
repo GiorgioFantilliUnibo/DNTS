@@ -9,12 +9,22 @@ import domain.authentication.{AuthenticationService, Credentials, Crypto, Token,
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
+/**
+ * Encapsulates the behavior logic for the AuthActor.
+ *
+ * @param context  The actor context.
+ * @param database The database responsible for storing and retrieving user records.
+ * @param service  The service used to generate and validate authentication tokens.
+ */
 private[authentication] class AuthBehavior(
                                             context: ActorContext[AuthCommand],
                                             database: UserDatabase,
                                             service:  AuthenticationService
                                           ):
 
+  /**
+   * Main state: Handles incoming authentication and user management commands.
+   */
   def active(): Behavior[AuthCommand] =
     Behaviors.receive: (context, message) =>
       message match
@@ -33,6 +43,14 @@ private[authentication] class AuthBehavior(
         case ValidateToken(token, replyTo) =>
           handleValidateToken(token, replyTo)
 
+  /**
+   * Handles the registration of a new user by securely hashing their password
+   * and storing the record in the database.
+   *
+   * @param context The actor context for emitting logs.
+   * @param rawUser The unencrypted user data provided for registration.
+   * @param replyTo The reference of the actor who will receive the registration result.
+   */
   private def handleRegister(
                               context: ActorContext[AuthCommand],
                               rawUser: User,
@@ -55,6 +73,13 @@ private[authentication] class AuthBehavior(
 
     Behaviors.same
 
+  /**
+   * Processes a request to retrieve a user's details.
+   *
+   * @param id       The unique ID of the user to find.
+   * @param tokenOpt An optional token provided by the requester.
+   * @param replyTo  The reference to reply with the user details or an error.
+   */
   private def handleGetUser(
                              id: String,
                              tokenOpt: Option[Token],
@@ -76,6 +101,12 @@ private[authentication] class AuthBehavior(
           replyTo ! GetUserReply.NotFound(id)
     Behaviors.same
 
+  /**
+   * Processes a request to verify a user's password without issuing a token.
+   *
+   * @param credentials The ID and plaintext password to verify.
+   * @param replyTo     The reference for responding with the test result.
+   */
   private def handleCheckPassword(
                                    credentials: Credentials,
                                    replyTo: ActorRef[CheckPasswordReply]
@@ -85,6 +116,14 @@ private[authentication] class AuthBehavior(
     replyTo ! (if valid then CheckPasswordReply.Valid else CheckPasswordReply.Invalid)
     Behaviors.same
 
+  /**
+   * Processes an authentication request.
+   * If credentials are valid, it issues a token with the specified duration.
+   *
+   * @param credentials The ID and plaintext password to verify.
+   * @param duration    The lifetime of the generated token.
+   * @param replyTo     The reference to reply with the generated token or a failure reason.
+   */
   private def handleAuthenticate(
                                   credentials: Credentials,
                                   duration: FiniteDuration,
@@ -99,6 +138,12 @@ private[authentication] class AuthBehavior(
         replyTo ! AuthenticateReply.AuthFailed(reason)
     Behaviors.same
 
+  /**
+   * Processes a request to validate an existing token.
+   *
+   * @param token   The token to be validated.
+   * @param replyTo The reference to reply with the validation status.
+   */
   private def handleValidateToken(
                                    token: Token,
                                    replyTo: ActorRef[ValidateTokenReply]
