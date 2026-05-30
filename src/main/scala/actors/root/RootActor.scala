@@ -20,15 +20,19 @@ object RootActor:
    *
    * @param role       The role passed via CLI.
    * @param configPath Optional path to the configuration file.
-   * @param appConfig  Implicit application configuration.
+   * @param akkaConfig Application configuration of application.conf.
+   * @param action     Action (login, registration) to be performed on the seed actor that handles authentication.
+   * @param username   Username of the client performing the authentication.
+   * @param password   Password of the client performing the authentication.
+   * @param fullName   Optional full name of the client performing the authentication.
    */
   def apply(
     role: NodeRole,
     configPath: Option[String],
     akkaConfig: Config,
     action: AuthAction,
-    username: String,
-    password: String,
+    username: Option[String],
+    password: Option[String],
     fullName: Option[String] = None
   )(using appConfig: AppConfig): Behavior[RootCommand] =
     Behaviors.setup: context =>

@@ -56,7 +56,12 @@ import scala.concurrent.duration.DurationInt
  * @param context     The actor context providing access to the actor system.
  * @param role        The specific role of this node.
  * @param configPath  Optional file path to the configuration file used.
- * @param appConfig   Implicit global application configuration.
+ * @param akkaConfig  Application configuration of application.conf.
+ * @param action      Action (login, registration) to be performed on the seed actor that handles authentication.
+ * @param username    Username of the client performing the authentication.
+ * @param password    Password of the client performing the authentication.
+ * @param fullName    Optional full name of the client performing the authentication.
+ * @param appConfig   Implicit application configuration.
  */
 class RootBehavior(
                     context: ActorContext[RootCommand],
@@ -64,8 +69,8 @@ class RootBehavior(
                     configPath: Option[String],
                     akkaConfig: Config,
                     action: AuthAction,
-                    username: String,
-                    password: String,
+                    username: Option[String],
+                    password: Option[String],
                     fullName: Option[String] = None
                   )(using appConfig: AppConfig):
 
@@ -76,6 +81,11 @@ class RootBehavior(
     fileConfig: FileConfig
   )
 
+  /**
+   * For a seed node, it instantiates the actor responsible for authentication and proceeds
+   * with the bootstrap logic. For a known client, based on the specified action,
+   * it performs authentication on the seed node.
+   */
   def start(): Behavior[RootCommand] =
     role match
       case NodeRole.Seed =>
@@ -94,8 +104,19 @@ class RootBehavior(
 
         context.system.receptionist ! Receptionist.Subscribe(AuthActor.AuthServiceKey, authListingAdapter)
 
-        waitingForAuthActor(action, username, password, fullName)
+        if username.nonEmpty && password.nonEmpty then
+          waitingForAuthActor(action, username.getOrElse(""), password.getOrElse(""), fullName)
+        else
+          context.log.error("Client node: Cannot start without username and password.")
+          Behaviors.stopped
 
+  /**
+   * In the case of registation, the client sends a request to the seed node's AuthActor to store
+   * its credentials.
+   * In the case of login, it requests validation of the credentials (again to  seed node's
+   * AuthActor). If the credentials are present, the actor will generate a token that will
+   * allow subsequent authentication by the client.
+   */
   private def waitingForAuthActor(
                                    action: AuthAction,
                                    username: String,
@@ -116,7 +137,7 @@ class RootBehavior(
               )
               val registerAdapter = context.messageAdapter[AuthProtocol.RegisterReply](WrappedRegisterReply.apply)
               remoteAuthActorRef ! AuthProtocol.Register(user, registerAdapter)
-              waitingForRegistration(remoteAuthActorRef)
+              waitingForRegistration()
 
             else if action == AuthAction.Login then
               context.log.info(s"Client node: Initiating token authentication for the user: '$username'...")
@@ -129,8 +150,15 @@ class RootBehavior(
           case _ =>
             context.log.debug("Client node: Received empty listing update from Receptionist, waiting for seed discovery")
             Behaviors.same
+      case _ =>
+        Behaviors.same
 
-  private def waitingForRegistration(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
+  /**
+   * It receives the response from a new user's registration request, which is
+   * the response message from the seed to the client.
+   * Successful registration or any errors during this phase are notified to the client.
+   */
+  private def waitingForRegistration(): Behavior[RootCommand] =
     Behaviors.receiveMessage:
       case WrappedRegisterReply(AuthProtocol.RegisterReply.Registered) =>
         context.log.info("Client node: Registration on AuthActor was successful")
@@ -164,6 +192,11 @@ class RootBehavior(
       case _ =>
         Behaviors.same
 
+  /**
+   * It receives the response from sending the login credentials.
+   * In particular, the seed (via AuthActor) sends the token with which
+   * it will be possible to subsequently perform authentication (until its duration is valid).
+   */
   private def waitingForAuthentication(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
     Behaviors.receiveMessage:
       case WrappedAuthenticateReply(AuthProtocol.AuthenticateReply.Authenticated(token)) =>
@@ -186,6 +219,12 @@ class RootBehavior(
       case _ =>
         Behaviors.same
 
+  /**
+   * Receives the validation response for the token assigned to the client.
+   * If the seed (via AuthActor) receives a valid token (i.e., one associated with a user
+   * and still valid for a certain period), it will notify the client that it is valid and the
+   * bootstrap phase will begin.
+   */
   private def waitingForTokenValidation(): Behavior[RootCommand] =
     Behaviors.receiveMessage:
       case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenValid(token)) =>

@@ -52,8 +52,8 @@ object Main:
               configPath = configPath,
               akkaConfig,
               options.action.getOrElse(Login),
-              options.username.getOrElse("default"),
-              options.password.getOrElse("secret"),
+              options.username,
+              options.password,
               options.fullName
             )
 
