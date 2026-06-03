@@ -1,56 +1,86 @@
 # Distributed Neural Training Simulation (DNTS)
 
-**DNTS** è un framework software progettato per la simulazione e l'analisi dell'addestramento di reti neurali in un ambiente distribuito P2P (Peer-to-Peer). 
+DNTS is a software framework designed for the simulation and analysis of neural network training in a distributed P2P (Peer-to-Peer) environment.  
 
-Il sistema realizza un ambiente di apprendimento decentralizzato: i nodi autonomi apprendono localmente dal proprio frammento di dati e utilizzano il **Gossip Learning** per scambiarsi e fondere i modelli in modo asincrono, raggiungendo il consenso globale senza alcun server centrale.
+The system implements a decentralized learning environment: autonomous nodes learn locally from their own data shard and use Gossip Learning to exchange and merge models asynchronously, achieving global consensus without any central server.  
 
-Sviluppato interamente in **Scala 3** e **Akka Cluster**, il progetto applica rigorosamente i principi della Programmazione Funzionale e del Modello ad Attori.
+Developed entirely in Scala 3 and Akka Cluster, the project strictly applies the principles of Functional Programming and the Actor Model.
 
+## Build
 
-## Compilazione
-
-Il progetto utilizza **sbt** (Scala Build Tool). Per generare l'eseguibile multipiattaforma (Fat JAR) contenente l'applicativo e tutte le sue dipendenze, esegui dalla root del progetto:
+The project uses sbt (Scala Build Tool). To generate the multi-platform executable (Fat JAR) containing the application and all its dependencies, run the following from the project root:
 
 `sbt assembly`
 
-Nota: per comodità nei comandi successivi, rinomineremo il file generato in `dnts.jar`
+Note: for convenience in the subsequent commands, we will rename the generated file to `dnts.jar`
 
-## Esecuzione del Sistema
-L'applicazione è cross-platform (Windows, Linux, macOS) e richiede unicamente l'installazione di Java (JRE/JDK 11 o superiore). L'intero sistema può essere avviato tramite il JAR generato, senza dipendenze esterne.
+## Running the System
+The application is cross-platform (Windows, Linux, macOS) and only requires the installation of Java (JRE/JDK 11 or higher). The entire system can be started via the generated JAR, without external dependencies.
 
-### 1. Configurazione della Simulazione
-La topologia della rete neurale, il dataset da generare e gli iperparametri di addestramento sono da definire in un file di configurazione `.conf`.
-Assicurati che il file sia presente nella stessa cartella in cui stai lanciando il JAR del nodo Seed.
+### 1. Simulation Configuration
+The neural network topology, the dataset to be generated, and the training hyperparameters must be defined in a .conf configuration file.
+Ensure that the file is present in the same folder where you are launching the Seed node's JAR.
 
-### 2. Avvio del Nodo Seed
-Il primo nodo da lanciare è il seed. Questo nodo ha il compito di leggere il file di configurazione, avviare il cluster e fare da punto di ingresso per gli altri peer.
+### 2. Starting the Seed Node
+The first node to launch is the seed. This node is responsible for reading the configuration file, starting the cluster, and acting as an entry point for other peers.
 
-Apri un terminale ed esegui:
+Open a terminal and run:
+
 ```console
-java -jar dnts.jar --role seed --config simulation.conf
+java -jar dnts.jar --role seed --cluster MyCluster --config simulation.conf --port 2500
 ```
 
-### 3. Avvio dei Nodi Client
-Una volta avviato il nodo Seed, puoi lanciare quanti nodi client desideri. Ogni nodo si unirà al cluster, riceverà la sua porzione di dati e parteciperà il ciclo di Gossip Learning.
-Una volta avviata una istanza di simulazione non sarà più possibile aggiungere nodi al cluster creato.
+### 3. Starting the Client Nodes
+Once the Seed node is started, you can launch as many client nodes as you wish. Each node will join the cluster, receive its portion of data, and participate in the Gossip Learning cycle.
+Once a simulation instance is started, it will no longer be possible to add nodes to the created cluster.
+Clients must provide authentication options and link to the seed node's address.
 
-Apri un terminale ed esegui:
+Open a terminal and run::
 ```console
-# Avvio del primo client (es. sulla porta 2500)
-java -jar dnts.jar --role client --ip 127.0.0.1 --port 2500
+# Starting and registering the first client
+java -jar dnts.jar --role client --cluster MyCluster --seedAddress 127.0.0.1:2500 --port 2501 --action register --username alice --password secret --fullName "Alice Smith"
 
-# Avvio del secondo client (es. sulla porta 2700)
-java -jar dnts.jar --role client --ip 127.0.0.1 --port 2700
+# Starting and logging in a second existing client
+java -jar dnts.jar --role client --cluster MyCluster --seedAddress 127.0.0.1:2500 --port 2502 --action login --username bob --password secret
 ```
-(Puoi aggiungere ulteriori client semplicemente specificando una --port diversa per ciascuno).
+(You can add additional clients simply by specifying a different --port for each.)
 
-## Argomenti da CLI
-L'eseguibile accetta i seguenti parametri:
+## CLI Arguments
+The executable accepts the following parameters:
 
-| Parametro          | Descrizione                                          | Obbligatorietà                    |
-| ------------------ | ---------------------------------------------------- | ----------------------------------|
-| `--role <ruolo>`   | Ruolo del nodo nel cluster: `seed` o `client`        | Obbligatorio                      |
-| `--config <path>`  | Percorso file configurazione                         | Obbligatorio se `--role seed`     |
-| `--ip <indirizzo>` | IP di binding (default: `127.0.0.1`)                 | Opzionale                         |
-| `--port <porta>`   | Porta di binding                                     | Obbligatorio se `--role client`   |
-| `--help`           | Mostra menu di aiuto                                 | Opzionale                         |
+### Common Parameters
+
+These parameters are valid or required regardless of the node's role.
+
+| Parameter          | Description                                                 | Requirement   |
+|--------------------|-------------------------------------------------------------|---------------|
+| `--role <role>`    | Defines the node's role in the cluster: `seed` or `client`. | **Mandatory** |
+| `--cluster <name>` | The identifier name of the cluster.                         | **Mandatory** |
+| `--port <port>`    | Listening binding port for the node (e.g., `2500`).         | **Mandatory** |
+| `--help`           | Shows the CLI help menu.                                    | Optional      |
+
+
+---
+
+### Seed Node (`--role seed`)
+
+The Seed node is the entry point of the cluster and manages the initial setup of the simulation.
+
+| Parameter         | Description                                                                                                 | Requirement   |
+|-------------------|-------------------------------------------------------------------------------------------------------------|---------------|
+| `--config <path>` | Path to the configuration file (e.g., `simulation.conf`) containing topology, dataset, and hyperparameters. | **Mandatory** |
+
+---
+
+### Client Node (`--role client`)
+
+Client nodes join the existing cluster, receive their portion of data, and participate in distributed training (Gossip Learning). They require additional parameters for connection and authentication.
+
+| Parameter                 | Description                                                                           | Requirement   |
+|---------------------------|---------------------------------------------------------------------------------------|---------------|
+| `--seedAddress <address>` | IP address and port of the Seed node to connect to (e.g., `127.0.0.1:2500`).          | **Mandatory** |
+| `--port <port>`           | Local binding port for the client node.                                               | **Mandatory** |
+| `--action <action>`       | Action to perform towards the Seed: `register` (new user) or `login` (existing user). | **Mandatory** |
+| `--username <name>`       | Client's username for authentication.                                                 | **Mandatory** |
+| `--password <pwd>`        | Client's password.                                                                    | **Mandatory** |
+| `--fullName <name>`       | User's full name (mainly useful during the `register` phase).                         | Optional      |
