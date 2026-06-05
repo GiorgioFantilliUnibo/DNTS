@@ -40,8 +40,6 @@ class SnapshotTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike with M
     override val lossFunction: domain.training.LossFunction   = ProductionConfig.lossFunction
     override val consensusInterval: FiniteDuration            = ProductionConfig.consensusInterval
     override val gossipRequestConfig: FiniteDuration          = ProductionConfig.gossipRequestConfig
-    override val clusterNodesLogFileName: String              = ProductionConfig.clusterNodesLogFileName
-    override val configurationInterval: FiniteDuration        = ProductionConfig.configurationInterval
     override val snapshotInterval: FiniteDuration             = 500.millis
     override def modelSnapshotPath(port: Int): String         = s"test_model_snapshot_$port.bin"
     override def trainingSnapshotPath(port: Int): String      = s"test_training_snapshot_$port.bin"

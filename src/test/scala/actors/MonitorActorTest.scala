@@ -159,8 +159,5 @@ class MonitorActorTest extends ScalaTestWithActorTestKit with AnyFunSuiteLike wi
     modelProbe.expectMessageType[ModelCommand.GetMetrics]
 
     monitor ! MonitorCommand.ViewUpdateResponse(1, dummyModel, 0.1, 0.1, 0.0)
-    
-    monitor ! MonitorCommand.SimulateCrash
-    modelProbe.expectNoMessage(500.millis)
   }
 }

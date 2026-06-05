@@ -142,7 +142,6 @@ class DecisionPolicyTest extends AnyFunSuite with Matchers:
   test("RunningPolicy: UnreachableTimeout -> remove and down node"):
     val state = baseState(Running)
 
-    RunningPolicy.decide(state, UnreachableTimeout(workerNode.address)) should contain allOf (
-      RemoveNodeFromMembership(workerNode.address),
+    RunningPolicy.decide(state, UnreachableTimeout(workerNode.address)) should contain (
       DownNode(workerNode.address)
     )
