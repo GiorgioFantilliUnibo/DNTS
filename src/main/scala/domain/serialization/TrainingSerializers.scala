@@ -68,6 +68,12 @@ object TrainingSerializers:
         val trainBytes = conf.trainSet.serialize
         val testBytes = conf.testSet.serialize
 
+        val userBytes = conf.username.map(_.getBytes(StandardCharsets.UTF_8))
+        val passBytes = conf.password.map(_.getBytes(StandardCharsets.UTF_8))
+        
+        val userSize = userBytes.map(b => 4 + b.length).getOrElse(0)
+        val passSize = passBytes.map(b => 4 + b.length).getOrElse(0)
+
         val totalSize =
           4 + idBytes.length +
           4 + trainBytes.length +
@@ -77,7 +83,9 @@ object TrainingSerializers:
           4 + regBytes.length +
           4 +
           4 +
-          9
+          9 +
+          1 + userSize +
+          1 + passSize
 
         val buffer = ByteBuffer.allocate(totalSize)
 
@@ -102,6 +110,24 @@ object TrainingSerializers:
         conf.seed match
           case Some(s) => buffer.put(1.toByte); buffer.putLong(s)
           case None    => buffer.put(0.toByte); buffer.putLong(0L)
+
+        conf.username match
+          case Some(u) => 
+            val b = u.getBytes(StandardCharsets.UTF_8)
+            buffer.put(1.toByte)
+            buffer.putInt(b.length)
+            buffer.put(b)
+          case None => 
+            buffer.put(0.toByte)
+
+        conf.password match
+          case Some(p) => 
+            val b = p.getBytes(StandardCharsets.UTF_8)
+            buffer.put(1.toByte)
+            buffer.putInt(b.length)
+            buffer.put(b)
+          case None => 
+            buffer.put(0.toByte)
 
         buffer.array()
 
@@ -143,5 +169,21 @@ object TrainingSerializers:
       val seedVal = buffer.getLong
       val seed = if (hasSeed) Some(seedVal) else None
 
-      TrainingConfig(simulationId, trainSet, testSet, features, hp, epochs, batchSize, seed)
+      val hasUser = buffer.get() == 1.toByte
+      val username = if (hasUser) {
+        val len = buffer.getInt
+        val bytes = new Array[Byte](len)
+        buffer.get(bytes)
+        Some(new String(bytes, StandardCharsets.UTF_8))
+      } else None
+
+      val hasPass = buffer.get() == 1.toByte
+      val password = if (hasPass) {
+        val len = buffer.getInt
+        val bytes = new Array[Byte](len)
+        buffer.get(bytes)
+        Some(new String(bytes, StandardCharsets.UTF_8))
+      } else None
+
+      TrainingConfig(simulationId, trainSet, testSet, features, hp, epochs, batchSize, seed, password, username)
     }
