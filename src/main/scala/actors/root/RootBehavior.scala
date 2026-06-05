@@ -487,13 +487,15 @@ class RootBehavior(
             distributeDatasetActor.unsafeUpcast
           )
           gracefullyStopping(children)
-        case _ =>
-          Behaviors.unhandled
 
         case RootCommand.SimulateCrash =>
           context.log.warn("Root: CRASH SIMULATION IN PROGRESS. Immediate JVM halt.")
           context.system.terminate()
           Behaviors.stopped
+
+        case _ =>
+          Behaviors.unhandled
+
 
   /**
    * It coordinates the sequential shutdown of all local child actors. The actor enters
