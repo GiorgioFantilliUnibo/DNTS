@@ -342,11 +342,13 @@ class RootBehavior(
           val trainPath = appConfig.trainingSnapshotPath(port)
           val modelPath = appConfig.modelSnapshotPath(port)
 
+          context.log.info(s"Root: Received Initial Configuration from $seedID. Simulation ID: ${trainConfig.simulationId}")
+
           val localConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
           val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
 
           if (localConfig.exists(_.simulationId == trainConfig.simulationId)) {
-            context.log.info(s"Root: Peer recovery for simulation ${trainConfig.simulationId}")
+            context.log.info(s"Root: Peer recovery detected for simulation ${trainConfig.simulationId}")
 
             val recoveredConfig = localConfig.get
             val recoveredModel = localModel.getOrElse(model)
@@ -358,10 +360,12 @@ class RootBehavior(
             trainerActor ! TrainerCommand.SetTrainConfig(recoveredConfig)
 
             if (recoveredConfig.trainSet.nonEmpty) {
+              context.log.info(s"Root: Auto-restarting simulation with ${recoveredConfig.trainSet.size} samples...")
               clusterManager ! ClusterProtocol.StartSimulation
               trainerActor ! TrainerCommand.Start(recoveredConfig.trainSet, recoveredConfig.testSet)
             }
           } else {
+            context.log.info(s"Root: Initializing fresh simulation state.")
             val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, Regularizers.fromConfig(trainConfig.hp.regularization))
             modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
             monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
@@ -399,7 +403,22 @@ class RootBehavior(
             val fileConf = ConfigLoader.load(path)
             context.log.info(s"Root: Configuration loaded from $path")
 
-            val (model, tConfig, optimizer) = initializeFreshState(fileConf)
+            val port = context.system.address.port.getOrElse(0)
+            val trainPath = appConfig.trainingSnapshotPath(port)
+            val modelPath = appConfig.modelSnapshotPath(port)
+
+            val localConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
+            val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
+
+            val (model, tConfig, optimizer) = if (localConfig.isDefined) {
+              context.log.info(s"Root (SEED): Found local snapshot, preparing for recovery...")
+              val recoveredConfig = localConfig.get
+              val recoveredModel = localModel.getOrElse(createModel(fileConf))
+              val opt = Optimizers.SGD(recoveredConfig.hp.learningRate, Regularizers.fromConfig(recoveredConfig.hp.regularization))
+              (recoveredModel, recoveredConfig, opt)
+            } else {
+              initializeFreshState(fileConf)
+            }
 
             modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
             monitorActor ! MonitorCommand.Initialize(myAddress, model, tConfig)
@@ -416,9 +435,7 @@ class RootBehavior(
             context.log.info(s"Root (CLIENT): Cluster Ready via $myAddress. Waiting for Seed Config...")
             Behaviors.same
 
-        case RootCommand.ClusterFailed |
-             RootCommand.InvalidCommandInBootstrap |
-             RootCommand.InvalidCommandInJoining =>
+        case RootCommand.ClusterFailed  =>
 
           monitorActor ! MonitorCommand.ConnectionFailed(msg.toString)
 
@@ -449,6 +466,11 @@ class RootBehavior(
           gracefullyStopping(children)
         case _ =>
           Behaviors.unhandled
+
+        case RootCommand.SimulateCrash =>
+          context.log.warn("Root: CRASH SIMULATION IN PROGRESS. Immediate JVM halt.")
+          Runtime.getRuntime.halt(1)
+          Behaviors.stopped
 
   /**
    * It coordinates the sequential shutdown of all local child actors. The actor enters

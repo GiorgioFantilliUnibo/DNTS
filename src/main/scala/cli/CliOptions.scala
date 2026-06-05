@@ -10,6 +10,14 @@ case class AuthOptions(
                         fullName: Option[String] = None
                       )
 
+/**
+ * Container representing the raw state of parsed command-line arguments.
+ *
+ * @param role          The operating [[NodeRole]] of the node.
+ * @param configFile    The optional file path to the simulation configuration.
+ * @param seedAddress   The target IP address (required for Client nodes).
+ * @param port          The target port number (required for Client nodes).
+ */
 case class CliOptions(
                        role: Option[NodeRole] = None,
                        cluster: Option[String] = None,
@@ -22,6 +30,13 @@ case class CliOptions(
                        fullName: Option[String] = None
                      ):
 
+  /**
+   * Performs semantic validation of the accumulated options.
+   * It ensures that the specific combination of flags is valid for the selected role.
+   *
+   * @return `Right` containing the validated tuple (Role, ConfigPath, IP, Port) if successful,
+   *         or `Left` with an error message if the configuration is invalid.
+   */
   def validate: Either[String, (NodeRole, Option[String], Option[String], Option[String], Option[Int], Option[AuthOptions])] =
     role match
       case None =>

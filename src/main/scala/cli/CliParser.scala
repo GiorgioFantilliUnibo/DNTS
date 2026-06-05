@@ -4,13 +4,32 @@ import domain.authentication.{AuthAction, NodeRole}
 
 import scala.annotation.tailrec
 
+/**
+ * Represents the possible outcomes of the command-line argument parsing process.
+ */
 sealed trait ParseResult
 
 object ParseResult:
+  /** Indicates a successful parse, 
+   * 
+   * @param options the fully populated options. 
+   */
   final case class Success(options: CliOptions) extends ParseResult
+
+  /** Indicates the user requested the help message (or provided empty args). */
   case object Help extends ParseResult
+
+  /** 
+   * Indicates an error occurred (e.g., unknown flag, invalid value). 
+   * 
+   * @param message the error message.
+   */
   final case class Failure(message: String) extends ParseResult
 
+
+/**
+ * Responsible for parsing command-line arguments.
+ */
 object CliParser:
 
   private val HelpText =
@@ -31,8 +50,15 @@ object CliParser:
        |  --fullName <string>                 Full name (Required for registration).
        |""".stripMargin
 
+  /** Retrieves the formatted usage string describing available commands. */
   def getHelpText: String = HelpText
 
+  /**
+   * Parses a list of raw command-line arguments into a structured result.
+   *
+   * @param args The list of arguments.
+   * @return A [[ParseResult]] indicating Success, Help, or Failure.
+   */
   def parse(args: List[String]): ParseResult =
     if args.isEmpty || args.contains("--help") then
       ParseResult.Help

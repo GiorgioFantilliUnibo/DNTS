@@ -114,6 +114,12 @@ private[monitor] class MonitorBehavior(
           timers.cancelAll()
           Behaviors.stopped
 
+        case MonitorCommand.SimulateCrash =>
+          context.log.warn("Monitor: Forwarding crash request to RootActor.")
+          boundary.showCrashMessage()
+          rootActor ! RootCommand.SimulateCrash
+          Behaviors.same
+
         case _ => Behaviors.unhandled
 
   /**
@@ -170,10 +176,10 @@ private[monitor] class MonitorBehavior(
           Behaviors.same
 
         case MonitorCommand.SimulateCrash =>
-          context.log.warn("Monitor: Crash simulation. Forced node shutdown.")
+          context.log.warn("Monitor: Forwarding crash request to RootActor.")
           boundary.showCrashMessage()
-          context.system.terminate()
-          Behaviors.stopped
+          rootActor ! RootCommand.SimulateCrash
+          Behaviors.same
 
         case MonitorCommand.SimulationFinished =>
           context.log.info("Monitor: Simulation Finished naturally.")
@@ -211,6 +217,12 @@ private[monitor] class MonitorBehavior(
           boundary.stopSimulation()
           timers.cancelAll()
           Behaviors.stopped
+
+        case MonitorCommand.SimulateCrash =>
+          context.log.warn("Monitor: Forwarding crash request to RootActor.")
+          boundary.showCrashMessage()
+          rootActor ! RootCommand.SimulateCrash
+          Behaviors.same
 
         case MonitorCommand.PeerCountChanged(active, total) =>
           boundary.updatePeerDisplay(active, total)

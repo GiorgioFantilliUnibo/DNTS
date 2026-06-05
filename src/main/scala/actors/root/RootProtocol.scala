@@ -16,7 +16,7 @@ object RootProtocol:
    */
   sealed trait RootCommand
 
-  /** Protocol for the RootActor */
+  /** Protocol for the RootActor. */
   object RootCommand:
 
     /**
@@ -105,6 +105,11 @@ object RootProtocol:
     case object InvalidCommandInJoining extends  RootCommand
 
     /**
-     * Triggered when stop is selected.
+     * Commands the immediate and graceful shutdown of the simulation.
+     * It propagates the stop signal to all child actors (Cluster, Trainer, Model, etc.)
+     * and waits for their termination before stopping the Root component.
      */
     case object StopSimulation extends RootCommand
+
+    /** Command to simulate a critical hardware/OS crash instantly. */
+    case object SimulateCrash extends RootCommand
