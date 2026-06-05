@@ -10,7 +10,7 @@ import config.{AppConfig, ConfigLoader, FileConfig}
 import domain.network.{Feature, Model, ModelBuilder}
 import domain.training.LossFunction
 import domain.training.Strategies.{Optimizers, Regularizers}
-import domain.authentication.{AuthAction, Credentials, NodeRole, User}
+import domain.authentication.{AuthAction, Credentials, NodeRole, User, Crypto}
 import actors.monitor.MonitorActor
 import actors.monitor.MonitorActor.MonitorCommand
 import actors.cluster.{ClusterManager, ClusterProtocol, ClusterState}
@@ -347,7 +347,20 @@ class RootBehavior(
           val localConfig = PersistenceManager.loadFromFile[TrainingConfig](trainPath).toOption
           val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
 
-          if (localConfig.exists(_.simulationId == trainConfig.simulationId)) {
+          val expectedUser = username
+          val expectedPass = password.map(Crypto.sha256)
+
+          val isCorrectAccount = localConfig.exists { c =>
+            val isSeed = role == NodeRole.Seed
+            val checkId = c.simulationId == trainConfig.simulationId
+            if (isSeed) {
+              checkId && c.username.isEmpty && c.password.isEmpty
+            } else {
+              checkId && c.username == expectedUser && c.password == expectedPass
+            }
+          }
+
+          if (isCorrectAccount) {
             context.log.info(s"Root: Peer recovery detected for simulation ${trainConfig.simulationId}")
 
             val recoveredConfig = localConfig.get
@@ -366,10 +379,14 @@ class RootBehavior(
             }
           } else {
             context.log.info(s"Root: Initializing fresh simulation state.")
-            val optimizer = Optimizers.SGD(trainConfig.hp.learningRate, Regularizers.fromConfig(trainConfig.hp.regularization))
+            val configWithCredentials = trainConfig.copy(
+              username = expectedUser,
+              password = expectedPass
+            )
+            val optimizer = Optimizers.SGD(configWithCredentials.hp.learningRate, Regularizers.fromConfig(configWithCredentials.hp.regularization))
             modelActor ! ModelCommand.Initialize(model, optimizer, trainerActor)
-            monitorActor ! MonitorCommand.Initialize(seedID, model, trainConfig)
-            trainerActor ! TrainerCommand.SetTrainConfig(trainConfig)
+            monitorActor ! MonitorCommand.Initialize(seedID, model, configWithCredentials)
+            trainerActor ! TrainerCommand.SetTrainConfig(configWithCredentials)
           }
           Behaviors.same
 
@@ -411,11 +428,17 @@ class RootBehavior(
             val localModel = PersistenceManager.loadFromFile[Model](modelPath).toOption
 
             val (model, tConfig, optimizer) = if (localConfig.isDefined) {
-              context.log.info(s"Root (SEED): Found local snapshot, preparing for recovery...")
-              val recoveredConfig = localConfig.get
-              val recoveredModel = localModel.getOrElse(createModel(fileConf))
-              val opt = Optimizers.SGD(recoveredConfig.hp.learningRate, Regularizers.fromConfig(recoveredConfig.hp.regularization))
-              (recoveredModel, recoveredConfig, opt)
+              val isCorrectAccount = localConfig.exists(c => c.username.isEmpty && c.password.isEmpty)
+              if (isCorrectAccount) {
+                context.log.info(s"Root (SEED): Found local snapshot, preparing for recovery...")
+                val recoveredConfig = localConfig.get
+                val recoveredModel = localModel.getOrElse(createModel(fileConf))
+                val opt = Optimizers.SGD(recoveredConfig.hp.learningRate, Regularizers.fromConfig(recoveredConfig.hp.regularization))
+                (recoveredModel, recoveredConfig, opt)
+              } else {
+                context.log.info(s"Root (SEED): Found local snapshot but incorrect account. Initializing fresh state.")
+                initializeFreshState(fileConf)
+              }
             } else {
               initializeFreshState(fileConf)
             }
@@ -541,7 +564,9 @@ class RootBehavior(
       hp = conf.hyperParams,
       epochs = conf.epochs,
       batchSize = conf.batchSize,
-      seed = conf.seed
+      seed = conf.seed,
+      password = password.map(Crypto.sha256),
+      username = username
     )
 
   /**

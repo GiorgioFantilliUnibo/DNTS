@@ -23,6 +23,8 @@ object TrainerProtocol:
    * @param epochs    Total number of passes through the dataset.
    * @param batchSize Number of examples to process per batch.
    * @param seed      Optional seed for deterministic shuffling.
+   * @param password  The password for authentication.
+   * @param username  The username for authentication.
    */
   case class TrainingConfig(
     simulationId: String,
@@ -32,7 +34,9 @@ object TrainerProtocol:
     hp: HyperParams,
     epochs: Int,
     batchSize: Int,
-    seed: Option[Long] = None
+    seed: Option[Long] = None,
+    password: Option[String] = None,
+    username: Option[String] = None
   )
 
   /** 
