@@ -469,7 +469,7 @@ class RootBehavior(
 
         case RootCommand.SimulateCrash =>
           context.log.warn("Root: CRASH SIMULATION IN PROGRESS. Immediate JVM halt.")
-          Runtime.getRuntime.halt(1)
+          context.system.terminate()
           Behaviors.stopped
 
   /**
