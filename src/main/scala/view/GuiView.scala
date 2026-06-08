@@ -22,19 +22,28 @@ object GuiView:
     final val Simulation = "SIMULATION"
 
   def showInfoDialog(title: String, message: String): Unit =
-    SwingUtilities.invokeLater(() => {
+    if SwingUtilities.isEventDispatchThread then
       JOptionPane.showMessageDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE)
-    })
+    else
+      SwingUtilities.invokeAndWait(() => {
+        JOptionPane.showMessageDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE)
+      })
 
   def showWarningDialog(title: String, message: String): Unit =
-    SwingUtilities.invokeLater(() => {
+    if SwingUtilities.isEventDispatchThread then
       JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE)
-    })
+    else
+      SwingUtilities.invokeAndWait(() => {
+        JOptionPane.showMessageDialog(null, message, title, JOptionPane.WARNING_MESSAGE)
+      })
 
   def showErrorDialog(title: String, message: String): Unit =
-    SwingUtilities.invokeLater(() => {
+    if SwingUtilities.isEventDispatchThread then
       JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE)
-    })
+    else
+      SwingUtilities.invokeAndWait(() => {
+        JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE)
+      })
 
 
 /**

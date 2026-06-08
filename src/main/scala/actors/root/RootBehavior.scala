@@ -172,7 +172,7 @@ class RootBehavior(
       case WrappedRegisterReply(AuthProtocol.RegisterReply.AlreadyExists(reason)) =>
         context.log.error(s"Client node: Registration failed (User already exists): $reason")
 
-        GuiView.showWarningDialog(
+        GuiView.showErrorDialog(
           "Registration Error",
           s"Warning: Registration failed.\nThe user already exists:\n$reason"
         )
@@ -232,8 +232,7 @@ class RootBehavior(
         context.log.info("Client node: The token is valid and active. Final system bootstrap is starting")
         GuiView.showInfoDialog(
           "Authentication Successful",
-          "Token validated. System is bootstrapping now..."
-        )
+          "Client ready to work")
         ready()
 
       case WrappedValidateTokenReply(AuthProtocol.ValidateTokenReply.TokenInvalid(reason)) =>
