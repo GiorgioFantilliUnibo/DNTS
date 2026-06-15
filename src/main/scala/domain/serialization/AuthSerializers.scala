@@ -9,8 +9,19 @@ import java.time.Instant
 import scala.util.Try
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
 
+/**
+ * Binary serializers for authentication domain objects and protocol messages.
+ * This object provides implicit strategies to convert high-level authentication structures
+ * (like [[User]], [[Credentials]], [[Token]], and replies) into byte arrays
+ * suitable for network transmission.
+ */
 object AuthSerializers:
 
+  /**
+   * Serializer for the [[User]] domain object.
+   * Converts user details (username, full name, role, and password) into a byte array
+   * encoded in UTF-8, prefixed by their respective lengths.
+   */
   given userSerializer: Serializer[User] with
     extension (u: User)
       def serialize: Array[Byte] =
@@ -32,6 +43,11 @@ object AuthSerializers:
       User(readString(), readString(), NodeRole.fromString(readString()).get, readString())
     }
 
+  /**
+   * Serializer for the [[Credentials]] domain object.
+   * Converts credentials (id and password) into a byte array encoded in UTF-8,
+   * prefixed by their respective lengths.
+   */
   given credentialsSerializer: Serializer[Credentials] with
     extension (c: Credentials)
       def serialize: Array[Byte] =
@@ -45,6 +61,12 @@ object AuthSerializers:
       Credentials(readStr(), readStr())
     }
 
+  /**
+   * Serializer for the [[Token]] domain object.
+   * Serializes the raw token string, the associated [[User]], and the expiration timestamp.
+   *
+   * @param userSer The implicit [[Serializer]] used for [[User]] serialization.
+   */
   given tokenSerializer(using userSer: Serializer[User]): Serializer[Token] with
     extension (t: Token)
       def serialize: Array[Byte] =
@@ -63,7 +85,16 @@ object AuthSerializers:
       Token(new String(rBytes, StandardCharsets.UTF_8), userSer.deserialize(uBytes).get, exp)
     }
 
-
+  /**
+   * Serializer for [[AuthCommand]] protocol messages.
+   * Handles the serialization of authentication commands such as Register, Authenticate, and ValidateToken,
+   * including the resolution of reply-to ActorRefs.
+   *
+   * @param userSer  The implicit [[Serializer]] used for [[User]] serialization.
+   * @param credSer  The implicit [[Serializer]] used for [[Credentials]] serialization.
+   * @param tokenSer The implicit [[Serializer]] used for [[Token]] serialization.
+   * @param resolver The [[ActorRefResolver]] used to serialize and deserialize actor references.
+   */
   given authCommandSerializer(using
                               userSer: Serializer[User],
                               credSer: Serializer[Credentials],
@@ -107,6 +138,11 @@ object AuthSerializers:
         case _ => throw new IllegalArgumentException("Unknown AuthCommand type byte")
     }
 
+
+  /**
+   * Serializer for the [[RegisterReply]] protocol message.
+   * Handles the serialization of registration outcomes (Registered, AlreadyExists, RegisterError).
+   */
   given registerReplySerializer: Serializer[RegisterReply] with
     extension (reply: RegisterReply)
       def serialize: Array[Byte] = reply match
@@ -121,6 +157,12 @@ object AuthSerializers:
         case 3 => val l = b.getInt; val a = new Array[Byte](l); b.get(a); RegisterReply.RegisterError(new String(a, StandardCharsets.UTF_8))
     }
 
+  /**
+   * Serializer for the [[AuthenticateReply]] protocol message.
+   * Handles the serialization of authentication outcomes (Authenticated with token, or AuthFailed with reason).
+   *
+   * @param tokenSer The implicit [[Serializer]] used for [[Token]] serialization.
+   */
   given authenticateReplySerializer(using tokenSer: Serializer[Token]): Serializer[AuthenticateReply] with
     extension (reply: AuthenticateReply)
       def serialize: Array[Byte] = reply match
@@ -133,6 +175,12 @@ object AuthSerializers:
         case 2 => val l = b.getInt; val a = new Array[Byte](l); b.get(a); AuthenticateReply.AuthFailed(new String(a, StandardCharsets.UTF_8))
     }
 
+  /**
+   * Serializer for the [[ValidateTokenReply]] protocol message.
+   * Handles the serialization of token validation outcomes (TokenValid with token, or TokenInvalid with reason).
+   *
+   * @param tokenSer The implicit [[Serializer]] used for [[Token]] serialization.
+   */
   given validateTokenReplySerializer(using tokenSer: Serializer[Token]): Serializer[ValidateTokenReply] with
     extension (reply: ValidateTokenReply)
       def serialize: Array[Byte] = reply match
