@@ -24,6 +24,8 @@ private[authentication] class AuthBehavior(
 
   /**
    * Main state: Handles incoming authentication and user management commands.
+   *
+   * @param activeSessions currently connected users
    */
   def active(activeSessions: Map[String, Token] = Map.empty): Behavior[AuthCommand] =
     Behaviors.receive: (context, message) =>
@@ -123,6 +125,7 @@ private[authentication] class AuthBehavior(
    * @param credentials The ID and plaintext password to verify.
    * @param duration    The lifetime of the generated token.
    * @param replyTo     The reference to reply with the generated token or a failure reason.
+   * @param activeSessions currently connected users
    */
   private def handleAuthenticate(
                                   credentials: Credentials,
