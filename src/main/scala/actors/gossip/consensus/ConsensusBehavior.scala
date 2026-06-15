@@ -166,7 +166,13 @@ private[consensus] class ConsensusBehavior(
               )
               Behaviors.same
 
-/** Calculates the average divergence between the networks */
+/**
+ * Calculates the calculation of divergences between models.
+ *
+ * @param localModel The local model.
+ * @param allModels  All models.
+ * @return The calculation of divergences between models.
+ * */
 private def computeNetworkConsensus(localModel: Model, allModels: List[Model]): Double =
   if allModels.isEmpty then 0.0
   else
