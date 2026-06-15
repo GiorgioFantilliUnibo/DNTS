@@ -15,7 +15,7 @@ object GossipProtocol:
   trait GossipCommand extends Serializable
 
   /**
-   * Commands that are broadcast to all application nodes
+   * Commands that are broadcast to all application nodes.
    */
   sealed trait ControlCommand extends GossipCommand
 
