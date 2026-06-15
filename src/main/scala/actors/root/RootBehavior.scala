@@ -85,6 +85,8 @@ class RootBehavior(
    * For a seed node, it instantiates the actor responsible for authentication and proceeds
    * with the bootstrap logic. For a known client, based on the specified action,
    * it performs authentication on the seed node.
+   *
+   * @return A Behavior handling RootCommand messages
    */
   def start(): Behavior[RootCommand] =
     role match
@@ -116,6 +118,12 @@ class RootBehavior(
    * In the case of login, it requests validation of the credentials (again to  seed node's
    * AuthActor). If the credentials are present, the actor will generate a token that will
    * allow subsequent authentication by the client.
+   *
+   * @param action   The action (Login or Register) to be performed.
+   * @param username The username of the client.
+   * @param password The password of the client.
+   * @param fullName Optional full name of the client.
+   * @return A Behavior handling RootCommand messages.
    */
   private def waitingForAuthActor(
                                    action: AuthAction,
@@ -157,6 +165,8 @@ class RootBehavior(
    * It receives the response from a new user's registration request, which is
    * the response message from the seed to the client.
    * Successful registration or any errors during this phase are notified to the client.
+   *
+   * @return A Behavior handling RootCommand messages.
    */
   private def waitingForRegistration(): Behavior[RootCommand] =
     Behaviors.receiveMessage:
@@ -196,6 +206,8 @@ class RootBehavior(
    * It receives the response from sending the login credentials.
    * In particular, the seed (via AuthActor) sends the token with which
    * it will be possible to subsequently perform authentication (until its duration is valid).
+   *
+   * @return A Behavior handling RootCommand messages.
    */
   private def waitingForAuthentication(remoteAuthActorRef: ActorRef[AuthActor.AuthCommand]): Behavior[RootCommand] =
     Behaviors.receiveMessage:
@@ -224,6 +236,8 @@ class RootBehavior(
    * If the seed (via AuthActor) receives a valid token (i.e., one associated with a user
    * and still valid for a certain period), it will notify the client that it is valid and the
    * bootstrap phase will begin.
+   *
+   * @return A Behavior handling RootCommand messages.
    */
   private def waitingForTokenValidation(): Behavior[RootCommand] =
     Behaviors.receiveMessage:
@@ -247,6 +261,8 @@ class RootBehavior(
         Behaviors.same
   /**
    * Bootstrap logic: executed immediately upon creation.
+   *
+   * @return A Behavior handling RootCommand messages.
    */
   def ready(): Behavior[RootCommand] =
     context.log.info(s"Root: Bootstrapping system with role $role...")
@@ -320,6 +336,18 @@ class RootBehavior(
 
   /**
    * State: Waiting for the Seed Start Simulation command.
+   *
+   * @param seedPayload Optional payload of configurations used by the seed.
+   * @param gossipActor            Reference to the [[GossipActor]].
+   * @param configurationActor     Reference to the [[ConfigurationActor]].
+   * @param distributeDatasetActor Reference to the [[DatasetDistributionActor]].
+   * @param consensusActor         Reference to the [[ConsensusActor]].
+   * @param modelActor             Reference to the local [[ModelActor]].
+   * @param trainerActor           Reference to the local [[TrainerActor]].
+   * @param monitorActor           Reference to the [[MonitorActor]].
+   * @param clusterManager         Reference to the [[ClusterManager]].
+   * @param discoveryActor         Reference to the [[DiscoveryActor]].
+   * @return A Behavior handling RootCommand messages.
    */
   private def waitingForStart(
     seedPayload: Option[SeedPayload],
