@@ -17,7 +17,7 @@ object ConsensusActor:
    * @param modelActor      Reference to the local [[ModelActor]]
    * @param discoveryActor  Reference to the [[DiscoveryActor]] for peer discovery.
    * @param config          Application global configuration.
-   * @return
+   * @return A Behavior handling ConsensusCommand messages.
    */
   def apply(
     modelActor: ActorRef[ModelCommand],
