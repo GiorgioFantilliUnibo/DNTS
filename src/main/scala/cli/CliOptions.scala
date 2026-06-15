@@ -3,6 +3,14 @@ package cli
 import domain.authentication.AuthAction.Register
 import domain.authentication.{AuthAction, NodeRole}
 
+/**
+ * Container for authentication-related command-line options.
+ *
+ * @param action   The authentication action to perform.
+ * @param username The username for authentication.
+ * @param password The password for authentication.
+ * @param fullName The optional full name (required for registration).
+ */
 case class AuthOptions(
                         action: Option[AuthAction],
                         username: String,
@@ -13,10 +21,15 @@ case class AuthOptions(
 /**
  * Container representing the raw state of parsed command-line arguments.
  *
- * @param role          The operating [[NodeRole]] of the node.
- * @param configFile    The optional file path to the simulation configuration.
- * @param seedAddress   The target IP address (required for Client nodes).
- * @param port          The target port number (required for Client nodes).
+ * @param role        The operating [[NodeRole]] of the node.
+ * @param cluster     The name of the cluster.
+ * @param configFile  The optional file path to the simulation configuration.
+ * @param seedAddress The target IP address (required for Client nodes).
+ * @param port        The target port number.
+ * @param action      Action (login, registration) to be performed.
+ * @param username    Username of the client performing the authentication.
+ * @param password    Password of the client performing the authentication.
+ * @param fullName    Optional full name of the client performing the authentication.
  */
 case class CliOptions(
                        role: Option[NodeRole] = None,
@@ -34,8 +47,8 @@ case class CliOptions(
    * Performs semantic validation of the accumulated options.
    * It ensures that the specific combination of flags is valid for the selected role.
    *
-   * @return `Right` containing the validated tuple (Role, ConfigPath, IP, Port) if successful,
-   *         or `Left` with an error message if the configuration is invalid.
+   * @return `Right` containing the validated tuple (Role, Cluster, ConfigPath, IP, Port, AuthOptions) if successful,
+   * or `Left` with an error message if the configuration is invalid.
    */
   def validate: Either[String, (NodeRole, Option[String], Option[String], Option[String], Option[Int], Option[AuthOptions])] =
     role match
