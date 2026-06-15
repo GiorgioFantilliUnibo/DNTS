@@ -49,6 +49,11 @@ object AkkaSerializerAdapter:
   /**
    * Internal mapping connecting a specific Class type to its Manifest string
    * and its corresponding [[domain.serialization.Serializer]].
+   *
+ *
+   * @param manifest The unique string code identifying the class.
+   * @param clss       The class reference.
+   * @param serializer The specific domain serializer capable of handling this type.
    */
   private case class TypeBinding[T](
                                      manifest: String,
@@ -60,6 +65,8 @@ object AkkaSerializerAdapter:
 /**
  * Adapter class that integrates the custom [[domain.serialization.Serializer]] type classes
  * into the Akka Actor serialization infrastructure. .
+ *
+ * @param system The extended actor system used to resolve actor references during deserialization.
  */
 class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithStringManifest:
   import AkkaSerializerAdapter.*
@@ -70,7 +77,7 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
   private given resolver: ActorRefResolver = ActorRefResolver(system.toTyped)
 
   /**
-   * The static registry of supported types.
+   * The static registry of supported types mapping classes to their manifests and serializers.
    */
   private val registry: List[TypeBinding[?]] = List(
     TypeBinding(ManifestModel, classOf[Model], summon[DomainSerializer[Model]]),
@@ -120,14 +127,25 @@ class AkkaSerializerAdapter(system: ExtendedActorSystem) extends SerializerWithS
     )
   )
 
+  /**
+   * Maps a manifest string directly to its corresponding type binding.
+   */
   private val manifestToBinding: Map[String, TypeBinding[?]] =
     registry.map(b => b.manifest -> b).toMap
 
+  /**
+   * Finds the appropriate type binding for a given class.
+   *
+   * @param clazz The class to look up.
+   * @return An optional [[TypeBinding]] if the class is supported.
+   */
   private def findBinding(clazz: Class[?]): Option[TypeBinding[?]] =
     registry.find(_.clss.isAssignableFrom(clazz))
 
 
   /**
+   * Determines the manifest (string identifier) for the given object.
+   *
    * @param o The object to be serialized.
    * @return The "Manifest" (a short string code) associated with the object instance.
    * @throws IllegalArgumentException If the object type is not registered in this adapter.
