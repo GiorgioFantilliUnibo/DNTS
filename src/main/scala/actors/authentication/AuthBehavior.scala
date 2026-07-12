@@ -24,10 +24,8 @@ private[authentication] class AuthBehavior(
 
   /**
    * Main state: Handles incoming authentication and user management commands.
-   *
-   * @param activeSessions currently connected users
    */
-  def active(activeSessions: Map[String, Token] = Map.empty): Behavior[AuthCommand] =
+  def active(): Behavior[AuthCommand] =
     Behaviors.receive: (context, message) =>
       message match
         case Register(rawUser, replyTo) =>
@@ -40,7 +38,7 @@ private[authentication] class AuthBehavior(
           handleCheckPassword(credentials, replyTo)
 
         case Authenticate(credentials, duration, replyTo) =>
-          handleAuthenticate(credentials, duration, replyTo, activeSessions)
+          handleAuthenticate(credentials, duration, replyTo)
 
         case ValidateToken(token, replyTo) =>
           handleValidateToken(token, replyTo)
@@ -125,31 +123,18 @@ private[authentication] class AuthBehavior(
    * @param credentials The ID and plaintext password to verify.
    * @param duration    The lifetime of the generated token.
    * @param replyTo     The reference to reply with the generated token or a failure reason.
-   * @param activeSessions currently connected users
    */
-  private def handleAuthenticate(
-                                  credentials: Credentials,
-                                  duration: FiniteDuration,
-                                  replyTo: ActorRef[AuthenticateReply],
-                                  activeSessions: Map[String, Token]
-                                ): Behavior[AuthCommand] =
+  private def handleAuthenticate(credentials: Credentials, duration: FiniteDuration, replyTo: ActorRef[AuthenticateReply]) =
+      service.authenticate(credentials, duration) match
+        case Right(token) =>
+          context.log.info(s"AuthActor: User '${credentials.id}' authenticated — token issued (expires ${token.expiration}).")
+          replyTo ! AuthenticateReply.Authenticated(token)
+          active()
 
-    activeSessions.get(credentials.id) match
-      case Some(existingToken) if !existingToken.isExpired =>
-        context.log.warn(s"AuthActor: Login denied for '${credentials.id}'. The user already has an active session.")
-        replyTo ! AuthenticateReply.AuthFailed("User already connected from another terminal.")
-        active(activeSessions)
-      case _ =>
-        service.authenticate(credentials, duration) match
-          case Right(token) =>
-            context.log.info(s"AuthActor: User '${credentials.id}' authenticated — token issued (expires ${token.expiration}).")
-            replyTo ! AuthenticateReply.Authenticated(token)
-            active(activeSessions + (credentials.id -> token))
-
-          case Left(reason) =>
-            context.log.warn(s"AuthActor: Authentication failed for '${credentials.id}': $reason")
-            replyTo ! AuthenticateReply.AuthFailed(reason)
-            active(activeSessions)
+        case Left(reason) =>
+          context.log.warn(s"AuthActor: Authentication failed for '${credentials.id}': $reason")
+          replyTo ! AuthenticateReply.AuthFailed(reason)
+          active()
 
   /**
    * Processes a request to validate an existing token.

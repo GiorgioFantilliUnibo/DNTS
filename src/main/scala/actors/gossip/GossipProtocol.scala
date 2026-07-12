@@ -109,4 +109,4 @@ object GossipProtocol:
      *
      * @param cmd The control command to execute locally.
      */
-    final case class HandleControlCommand(cmd: ControlCommand) extends ControlCommand
+    final case class HandleControlCommand(cmd: ControlCommand) extends GossipCommand
